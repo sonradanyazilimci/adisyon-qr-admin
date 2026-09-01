@@ -109,6 +109,19 @@ label { font-size: 13px; font-weight: 600; color: var(--renk-yazi-soluk); displa
 .panel-kart .deger { font-size: 26px; font-weight: 800; margin: 4px 0; }
 .panel-kart .etiket { font-size: 13px; color: var(--renk-yazi-soluk); font-weight: 600; }
 
+/* Ön muhasebe (hesap/yön/kategori/tutar/açıklama) formu — adisyon terminali
+   VE admin merkez ön muhasebesi ortak kullanır. */
+.kasa-hareket-form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.kasa-hareket-form select { max-width: 160px; }
+.kasa-hareket-form select[name="kategori"] { max-width: 190px; }
+.kasa-hareket-form input[name="tutar"] { max-width: 130px; }
+.kasa-hareket-form input[name="aciklama"] { flex: 1; min-width: 160px; }
+.kasa-hareket-form button { flex-shrink: 0; }
+@media (max-width: 560px) {
+  .kasa-hareket-form { flex-direction: column; }
+  .kasa-hareket-form select, .kasa-hareket-form input[name="tutar"] { max-width: none; }
+}
+
 /* Genel liste satırı — admin ve adisyon ekranları ortak kullanır.
    Mobilde (dar ekran) yatay hizalama yerine dikey yığılıp buton(lar) tam
    genişlik olur, böylece metin/buton üst üste binmez. */

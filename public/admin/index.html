@@ -113,9 +113,27 @@
           <h3>Gün Sonu Kapanışları</h3>
           <div id="muhasebe-gunsonu-liste"></div>
         </div>
-        <div class="kart">
+        <div class="kart" style="margin-bottom:16px;">
           <h3>Banka / Kart Hesabı / Personel Ödemeleri (Vardiya Bazlı)</h3>
           <div id="muhasebe-hareket-liste"></div>
+        </div>
+
+        <div class="kart">
+          <h3>🏢 Merkez Ön Muhasebe</h3>
+          <p style="font-size:12px;color:var(--renk-yazi-soluk);margin-top:-6px;">Şubelere bağlı olmayan (genel merkez) kasa/banka/kart hareketleri — buradaki kayıtlar anlık görünür (şube vardiyaları gibi rapor bekletilmez).</p>
+          <form id="merkez-hareket-form" class="kasa-hareket-form">
+            <select name="hesap" id="merkez-hareket-hesap-secim" required></select>
+            <select name="yon" required>
+              <option value="giris">⬆️ Giriş</option>
+              <option value="cikis">⬇️ Çıkış</option>
+            </select>
+            <select name="kategori" id="merkez-hareket-kategori-secim"></select>
+            <input name="tutar" type="number" step="0.01" min="0.01" placeholder="Tutar (₺)" required />
+            <input name="aciklama" type="text" placeholder="Açıklama" />
+            <button type="submit" class="btn-birincil">Ekle</button>
+          </form>
+          <div id="merkez-hareket-ozet" class="panel-kart-grid"></div>
+          <div id="merkez-hareket-liste"></div>
         </div>
       </section>
 

@@ -1,9 +1,10 @@
 import { db, auth } from "../../shared/firebase-config.js";
 import {
-  collection, doc, updateDoc, onSnapshot, query, serverTimestamp,
+  collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
   paraFormat, escapeHtml, tarihFormat, tarihAnahtariniOku, tarihAraligiBaslangici, snapshotHataYakala, bildirimGoster,
+  KASA_HESAP_ETIKET, KASA_HAREKET_KATEGORILERI,
 } from "../../shared/utils.js";
 import { subelerCache, subelerDegisti } from "./subeler.js";
 
@@ -18,6 +19,10 @@ import { subelerCache, subelerDegisti } from "./subeler.js";
 // (denetim izini koruyarak) geçersiz kılıp kasının yeniden göndermesini
 // sağlayabilir.
 let gunSonuKapanislariCache = [];
+// Şubeye bağlı olmayan (subeId==null) genel merkez hareketleri — bunlar
+// ADMİN'İN KENDİ eylemi olduğu için (kasa terminalindeki gibi bir "rapor
+// gönderme" bekletmesi yok) anlık/canlı gösterilir.
+let merkezHareketleriCache = [];
 
 const ozetEl = document.getElementById("muhasebe-ozet");
 const subeOzetKartEl = document.getElementById("muhasebe-sube-ozet-kart");
@@ -26,6 +31,9 @@ const gunSonuListeEl = document.getElementById("muhasebe-gunsonu-liste");
 const hareketListeEl = document.getElementById("muhasebe-hareket-liste");
 const aralikEl = document.getElementById("muhasebe-aralik");
 const subeEl = document.getElementById("muhasebe-sube");
+const merkezFormEl = document.getElementById("merkez-hareket-form");
+const merkezOzetEl = document.getElementById("merkez-hareket-ozet");
+const merkezListeEl = document.getElementById("merkez-hareket-liste");
 
 export function baslat() {
   onSnapshot(query(collection(db, "gunSonuKapanislari")), (snap) => {
@@ -33,9 +41,93 @@ export function baslat() {
     render();
   }, snapshotHataYakala("muhasebe-gunsonu"));
 
+  onSnapshot(query(collection(db, "kasaHareketleri"), where("subeId", "==", null)), (snap) => {
+    merkezHareketleriCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    render();
+  }, snapshotHataYakala("muhasebe-merkez"));
+
   subelerDegisti(() => { renderSubeSecim(); render(); });
   aralikEl.addEventListener("change", render);
   subeEl.addEventListener("change", render);
+
+  document.getElementById("merkez-hareket-hesap-secim").innerHTML = Object.entries(KASA_HESAP_ETIKET)
+    .map(([deger, etiket]) => `<option value="${deger}">${etiket}</option>`).join("");
+  document.getElementById("merkez-hareket-kategori-secim").innerHTML = Object.entries(KASA_HAREKET_KATEGORILERI)
+    .map(([deger, etiket]) => `<option value="${deger}">${etiket}</option>`).join("");
+
+  merkezFormEl.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const gonderButon = e.target.querySelector('button[type="submit"]');
+    gonderButon.disabled = true;
+    try {
+      await addDoc(collection(db, "kasaHareketleri"), {
+        subeId: null,
+        subeAdi: "Merkez",
+        hesap: fd.get("hesap"),
+        yon: fd.get("yon"),
+        kategori: fd.get("kategori") || "",
+        tutar: Number(fd.get("tutar")) || 0,
+        aciklama: fd.get("aciklama")?.trim() || "",
+        tarih: new Date().toISOString().slice(0, 10),
+        zaman: serverTimestamp(),
+        yapanKullanici: auth.currentUser?.displayName || auth.currentUser?.email || "",
+        yapanKullaniciId: auth.currentUser?.uid || null,
+      });
+      bildirimGoster("Merkez hareketi eklendi.", "basari");
+      e.target.reset();
+    } catch (err) {
+      bildirimGoster("Hata: " + err.message, "hata");
+    } finally {
+      gonderButon.disabled = false;
+    }
+  });
+}
+
+function hareketHesap(k) { return k.hesap || "nakit"; }
+function hareketYon(k) { return k.yon || (k.tur === "nakit_cikis" ? "cikis" : "giris"); }
+function hareketTutari(hesap, yon, liste) {
+  return liste.filter((k) => hareketHesap(k) === hesap && hareketYon(k) === yon).reduce((acc, k) => acc + Number(k.tutar || 0), 0);
+}
+
+function renderMerkezHareketleri(sinir) {
+  const liste = merkezHareketleriCache.filter((k) => tarihAraligiUyuyorMu(k.zaman, sinir));
+  const nakitNet = hareketTutari("nakit", "giris", liste) - hareketTutari("nakit", "cikis", liste);
+  const bankaNet = hareketTutari("banka", "giris", liste) - hareketTutari("banka", "cikis", liste);
+  const kartNet = hareketTutari("kart", "giris", liste) - hareketTutari("kart", "cikis", liste);
+  const personelOdeme = liste.filter((k) => k.kategori === "personel_odemesi").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
+
+  merkezOzetEl.innerHTML = `
+    <div class="panel-kart"><div class="etiket">💵 Merkez Nakit (Net)</div><div class="deger">${paraFormat(nakitNet)}</div></div>
+    <div class="panel-kart"><div class="etiket">🏦 Merkez Banka (Net)</div><div class="deger">${paraFormat(bankaNet)}</div></div>
+    <div class="panel-kart"><div class="etiket">💳 Merkez Kart Hesabı (Net)</div><div class="deger">${paraFormat(kartNet)}</div></div>
+    <div class="panel-kart"><div class="etiket">👤 Merkezden Personele Ödenen</div><div class="deger" style="color:var(--renk-kirmizi);">${paraFormat(personelOdeme)}</div></div>
+  `;
+
+  const sirali = liste.slice().sort((a, b) => (b.zaman?.toMillis?.() || 0) - (a.zaman?.toMillis?.() || 0));
+  merkezListeEl.innerHTML = sirali.length === 0
+    ? `<div class="bos-durum">Seçilen aralıkta merkez hareketi yok.</div>`
+    : `<div style="overflow-x:auto;">
+        <table class="veri-tablo">
+          <thead><tr><th>Hesap</th><th>Yön</th><th>Kategori</th><th>Tutar</th><th>Açıklama</th><th>Yapan</th><th>Zaman</th></tr></thead>
+          <tbody>
+            ${sirali.map((k) => {
+              const hesap = hareketHesap(k);
+              const yon = hareketYon(k);
+              return `
+              <tr>
+                <td>${KASA_HESAP_ETIKET[hesap] || hesap}</td>
+                <td style="color:${yon === "giris" ? "var(--renk-yesil)" : "var(--renk-kirmizi)"};font-weight:700;">${yon === "giris" ? "⬆️ Giriş" : "⬇️ Çıkış"}</td>
+                <td>${KASA_HAREKET_KATEGORILERI[k.kategori] || "—"}</td>
+                <td>${paraFormat(k.tutar)}</td>
+                <td>${escapeHtml(k.aciklama || "—")}</td>
+                <td class="tablo-soluk">${escapeHtml(k.yapanKullanici || "")}</td>
+                <td class="tablo-soluk">${tarihFormat(k.zaman)}</td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>`;
 }
 
 function renderSubeSecim() {
@@ -80,14 +172,24 @@ function render() {
   const personelOdeme = gecerli.reduce((acc, g) => acc + Number(g.personelOdemeToplam || 0), 0);
   const netNakit = nakitSatis + manuelGiris - manuelCikis;
 
+  // Merkez (admin'in kendi girdiği) hareketleri de aynı aralık/şube
+  // filtresine göre "genel hesap durumu"na dahil edilir — gerçek, basit bir
+  // ön muhasebe defterinde banka/personel toplamı şube+merkez'in TOPLAMIdır.
+  // (Şube filtresi seçiliyken merkez hareketleri hiçbir şubeye ait
+  // olmadığından genel toplama karışmasın diye hariç tutulur.)
+  const merkezListesi = subeFiltre ? [] : merkezHareketleriCache.filter((k) => tarihAraligiUyuyorMu(k.zaman, sinir));
+  const merkezBankaGiris = hareketTutari("banka", "giris", merkezListesi);
+  const merkezBankaCikis = hareketTutari("banka", "cikis", merkezListesi);
+  const merkezPersonelOdeme = merkezListesi.filter((k) => k.kategori === "personel_odemesi").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
+
   ozetEl.innerHTML = `
     <div class="panel-kart"><div class="etiket">Nakit Satış (Raporlanan)</div><div class="deger">${paraFormat(nakitSatis)}</div></div>
     <div class="panel-kart"><div class="etiket">Kart Satış (Raporlanan)</div><div class="deger">${paraFormat(kartSatis)}</div></div>
     <div class="panel-kart"><div class="etiket">🎫 Yemek Çeki Satış</div><div class="deger">${paraFormat(yemekCekiSatis)}</div></div>
     <div class="panel-kart"><div class="etiket">Toplam Ciro</div><div class="deger">${paraFormat(nakitSatis + kartSatis + yemekCekiSatis)}</div></div>
     <div class="panel-kart"><div class="etiket">Net Nakit Hareketi</div><div class="deger">${paraFormat(netNakit)}</div></div>
-    <div class="panel-kart"><div class="etiket">🏦 Banka Giriş / Çıkış</div><div class="deger" style="font-size:18px;">${paraFormat(bankaGiris)} / ${paraFormat(bankaCikis)}</div></div>
-    <div class="panel-kart"><div class="etiket">👤 Personele Ödenen</div><div class="deger" style="color:var(--renk-kirmizi);">${paraFormat(personelOdeme)}</div></div>
+    <div class="panel-kart"><div class="etiket">🏦 Banka Giriş / Çıkış (Şube + Merkez)</div><div class="deger" style="font-size:18px;">${paraFormat(bankaGiris + merkezBankaGiris)} / ${paraFormat(bankaCikis + merkezBankaCikis)}</div></div>
+    <div class="panel-kart"><div class="etiket">👤 Personele Ödenen (Şube + Merkez)</div><div class="deger" style="color:var(--renk-kirmizi);">${paraFormat(personelOdeme + merkezPersonelOdeme)}</div></div>
   `;
 
   // Merkezi muhasebe: "Tüm Şubeler" seçiliyken her şubenin RAPORLANMIŞ cirosu
@@ -178,6 +280,8 @@ function render() {
           </tbody>
         </table>
       </div>`;
+
+  renderMerkezHareketleri(sinir);
 }
 
 // Yanlışlıkla veya hatalı sayımla kapatılmış bir vardiyayı admin geri açar

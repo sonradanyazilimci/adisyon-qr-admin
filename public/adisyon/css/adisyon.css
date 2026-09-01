@@ -44,12 +44,8 @@ body { background: var(--renk-arkaplan); }
 .puantaj-manuel-satir { display: flex; gap: 10px; }
 .puantaj-manuel-satir > .form-alan { flex: 1; }
 
-.kasa-hareket-form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-.kasa-hareket-form select { max-width: 160px; }
-.kasa-hareket-form select[name="kategori"] { max-width: 190px; }
-.kasa-hareket-form input[name="tutar"] { max-width: 130px; }
-.kasa-hareket-form input[name="aciklama"] { flex: 1; min-width: 160px; }
-.kasa-hareket-form button { flex-shrink: 0; }
+/* .kasa-hareket-form → public/shared/common.css'e taşındı (admin merkez
+   ön muhasebe formu da aynı sınıfları kullanıyor). */
 .kasa-hareket-ozet { display: flex; gap: 20px; margin-bottom: 12px; font-size: 13px; flex-wrap: wrap; }
 
 .gun-sonu-ozet { margin-bottom: 16px; }
@@ -129,11 +125,38 @@ body { background: var(--renk-arkaplan); }
 .siparis-kalem .not { font-size: 11px; color: var(--renk-yazi-soluk); }
 .siparis-durum-select { max-width: 160px; font-size: 12px; padding: 4px 8px; }
 .toplam-satir { display: flex; justify-content: space-between; font-size: 18px; font-weight: 800; padding: 14px 0; border-top: 2px solid var(--renk-kenar); margin-top: 6px; }
-.odeme-secim { display: flex; gap: 10px; margin: 14px 0; flex-wrap: wrap; }
-.odeme-secim button { flex: 1; min-width: 90px; padding: 12px; border-radius: 10px; background: var(--renk-ikincil-bg); color: var(--renk-yazi); font-weight: 700; }
-.odeme-secim button.secili { background: var(--renk-ana); color: #fff; }
-.yemek-ceki-marka-secim { margin: -6px 0 14px; }
 .detay-eylemler { display: flex; gap: 10px; margin-top: 10px; }
+
+/* Bölüm bölüm ödeme satırları (hesap kapatma) */
+.odeme-satirlari-baslik { display: flex; justify-content: space-between; align-items: center; margin: 14px 0 8px; font-size: 13px; font-weight: 700; color: var(--renk-yazi-soluk); }
+.odeme-satiri { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
+.odeme-satiri .odeme-yontem-select { flex: 1.2; min-width: 110px; }
+.odeme-satiri .odeme-marka-select { flex: 1; min-width: 110px; }
+.odeme-satiri .odeme-tutar-input { flex: 1; min-width: 90px; }
+.odeme-satiri .odeme-satiri-sil { flex-shrink: 0; background: var(--renk-ikincil-bg); color: var(--renk-kirmizi); width: 34px; padding: 8px 0; }
+.odeme-kalan-satir { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; font-weight: 700; }
+.odeme-kalan-satir.eksik { color: #e67e22; }
+.odeme-kalan-satir.tamam { color: var(--renk-yesil); }
+
+/* Hesabı Böl modalı */
+.hesap-bol-mod-secim { display: flex; gap: 8px; margin-bottom: 14px; }
+.hesap-bol-mod-secim button { flex: 1; }
+.hesap-bol-mod-secim button.secili { background: var(--renk-ana); color: #fff; }
+.hesap-bol-kisi-cipler { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.hesap-bol-kisi-cip {
+  padding: 8px 14px; border-radius: 999px; background: var(--renk-ikincil-bg); font-weight: 700;
+  font-size: 13px; cursor: pointer; border: 2px solid transparent; user-select: none; display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.hesap-bol-kisi-cip.aktif { background: var(--renk-ana); color: #fff; }
+.hesap-bol-kisi-cip .hesap-bol-kisi-tutar { font-size: 11px; font-weight: 600; opacity: .85; }
+.hesap-bol-kisi-ekle { background: transparent; border: 1.5px dashed var(--renk-kenar); color: var(--renk-yazi-soluk); border-radius: 999px; padding: 8px 14px; font-size: 13px; }
+.hesap-bol-urun-liste { max-height: 40vh; overflow-y: auto; margin-bottom: 12px; }
+.hesap-bol-urun-satir {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px;
+  border-radius: 8px; background: var(--renk-ikincil-bg); margin-bottom: 6px; cursor: pointer; font-size: 13px;
+}
+.hesap-bol-urun-satir.atanmis { background: rgba(39,174,96,.15); }
+.hesap-bol-urun-etiket { font-size: 11px; font-weight: 700; color: var(--renk-ana); white-space: nowrap; }
 
 /* Kasa için POS tarzı yoğun ürün ızgarası — tüm ürünler tek bakışta görünür,
    karta tıklamak hızlıca 1 adet ekler; ✏️ ikonu not/adet girmek için. */
@@ -173,6 +196,7 @@ body { background: var(--renk-arkaplan); }
   .puantaj-eylem { width: 100%; }
   .puantaj-eylem button { flex: 1; }
   .puantaj-manuel-satir { flex-direction: column; gap: 0; }
-  .kasa-hareket-form { flex-direction: column; }
-  .kasa-hareket-form select, .kasa-hareket-form input[name="tutar"] { max-width: none; }
+  .odeme-satiri { flex-direction: column; align-items: stretch; }
+  .odeme-satiri .odeme-satiri-sil { width: 100%; }
+  .detay-eylemler { flex-direction: column; }
 }

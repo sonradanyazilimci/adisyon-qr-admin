@@ -22,8 +22,12 @@ let kategorilerCache = [];
 let urunlerCache = [];
 let garsonlarCache = [];
 let seciliMasaId = null;
-let seciliOdemeYontemi = "nakit";
-let seciliYemekCekiMarkasi = YEMEK_CEKI_MARKALARI[0];
+// Hesap kapatma artık TEK ödeme yöntemiyle sınırlı değil — bölüm bölüm
+// (parça parça, farklı yöntemlerle) ödenebilir. Her satır bir "parça":
+// { yontem: 'nakit'|'kart'|'yemek_ceki', tutar: number, marka?: string }.
+// Toplam tutara ulaşılınca "Hesabı Kapat" aktif olur. Masa değişince/hesap
+// kapanınca sıfırlanır (renderDetay boşsa varsayılan tek satırı kurar).
+let odemeSatirlari = [];
 let menuAcik = false;
 let aktifKategori = "";
 let aramaMetni = "";
@@ -469,6 +473,17 @@ function hareketTutari(hesap, yon, liste = vardiyaKasaHareketleri()) {
   return liste.filter((k) => hareketHesap(k) === hesap && hareketYon(k) === yon).reduce((acc, k) => acc + Number(k.tutar || 0), 0);
 }
 
+// Bir adisyon (kapanmış hesap) kaydının belirli bir ödeme yöntemiyle ne
+// kadarının ödendiğini döner — "bölüm bölüm" (odemeler[]) kayıtlarda ilgili
+// parçalar toplanır; eski (tekli odemeYontemi/toplamTutar) kayıtlarda tüm
+// tutar o tek yönteme aittir.
+function adisyonOdemeToplami(a, yontem) {
+  if (Array.isArray(a.odemeler)) {
+    return a.odemeler.filter((o) => o.yontem === yontem).reduce((acc, o) => acc + Number(o.tutar || 0), 0);
+  }
+  return a.odemeYontemi === yontem ? Number(a.toplamTutar || 0) : 0;
+}
+
 function renderKasaHareketPaneli() {
   const el = document.getElementById("kasa-hareket-listesi");
   const ozetEl = document.getElementById("kasa-hareket-ozet-panel");
@@ -527,14 +542,23 @@ function gunSonuModaliGoster() {
 
   const vAdisyonlar = vardiyaAdisyonlari();
   const vHareketler = vardiyaKasaHareketleri();
-  const nakitSatis = vAdisyonlar.filter((a) => a.odemeYontemi === "nakit").reduce((acc, a) => acc + Number(a.toplamTutar || 0), 0);
-  const kartSatis = vAdisyonlar.filter((a) => a.odemeYontemi === "kart").reduce((acc, a) => acc + Number(a.toplamTutar || 0), 0);
-  const yemekCekiKayitlari = vAdisyonlar.filter((a) => a.odemeYontemi === "yemek_ceki");
-  const yemekCekiSatis = yemekCekiKayitlari.reduce((acc, a) => acc + Number(a.toplamTutar || 0), 0);
+  // Hesap "bölüm bölüm" (karma) ödenmiş olabilir — her adisyon kaydının
+  // odemeler[] dizisindeki HER PARÇA ayrı ayrı sayılır. Eski (tekli
+  // ödemeYontemi/toplamTutar) kayıtlar için geriye dönük uyumluluk korunur.
+  const nakitSatis = vAdisyonlar.reduce((acc, a) => acc + adisyonOdemeToplami(a, "nakit"), 0);
+  const kartSatis = vAdisyonlar.reduce((acc, a) => acc + adisyonOdemeToplami(a, "kart"), 0);
+  const yemekCekiSatis = vAdisyonlar.reduce((acc, a) => acc + adisyonOdemeToplami(a, "yemek_ceki"), 0);
   const yemekCekiMarkaBazinda = {};
-  yemekCekiKayitlari.forEach((a) => {
-    const marka = a.yemekCekiMarkasi || "Diğer";
-    yemekCekiMarkaBazinda[marka] = (yemekCekiMarkaBazinda[marka] || 0) + Number(a.toplamTutar || 0);
+  vAdisyonlar.forEach((a) => {
+    if (Array.isArray(a.odemeler)) {
+      a.odemeler.filter((o) => o.yontem === "yemek_ceki").forEach((o) => {
+        const marka = o.marka || "Diğer";
+        yemekCekiMarkaBazinda[marka] = (yemekCekiMarkaBazinda[marka] || 0) + Number(o.tutar || 0);
+      });
+    } else if (a.odemeYontemi === "yemek_ceki") {
+      const marka = a.yemekCekiMarkasi || "Diğer";
+      yemekCekiMarkaBazinda[marka] = (yemekCekiMarkaBazinda[marka] || 0) + Number(a.toplamTutar || 0);
+    }
   });
   const manuelGiris = hareketTutari("nakit", "giris", vHareketler);
   const manuelCikis = hareketTutari("nakit", "cikis", vHareketler);
@@ -660,6 +684,68 @@ function masaninAcikSiparisleri(masaId) {
 }
 function siparisTutari(s) { return Number(s.toplamTutar) || 0; }
 
+function odemeSatirlariToplami() {
+  return Math.round(odemeSatirlari.reduce((acc, o) => acc + (Number(o.tutar) || 0), 0) * 100) / 100;
+}
+
+// Hesap kapatma ekranındaki "bölüm bölüm ödeme" satırları: her satır bir
+// yöntem+tutar (yemek çekiyse marka da). Toplam girilen tutar, hesabın genel
+// toplamına eşitlenene kadar "Hesabı Kapat" pasif kalır.
+function odemeSatirlariHtml(toplamTutar) {
+  const girilen = odemeSatirlariToplami();
+  const kalan = Math.round((toplamTutar - girilen) * 100) / 100;
+  return `
+    <div class="odeme-satirlari-baslik">
+      <span>Ödeme (bölüm bölüm ödenebilir)</span>
+      <button type="button" id="hesap-bol-kisayol-buton" class="btn-ikincil btn-kucuk">➗ Eşit Böl</button>
+    </div>
+    <div id="odeme-satirlari-liste">
+      ${odemeSatirlari.map((o, i) => `
+        <div class="odeme-satiri">
+          <select class="odeme-yontem-select" data-index="${i}">
+            <option value="nakit" ${o.yontem === "nakit" ? "selected" : ""}>💵 Nakit</option>
+            <option value="kart" ${o.yontem === "kart" ? "selected" : ""}>💳 Kart</option>
+            <option value="yemek_ceki" ${o.yontem === "yemek_ceki" ? "selected" : ""}>🎫 Yemek Çeki</option>
+          </select>
+          ${o.yontem === "yemek_ceki" ? `
+          <select class="odeme-marka-select" data-index="${i}">
+            ${YEMEK_CEKI_MARKALARI.map((m) => `<option value="${escapeHtml(m)}" ${o.marka === m ? "selected" : ""}>${escapeHtml(m)}</option>`).join("")}
+          </select>` : ""}
+          <input type="number" class="odeme-tutar-input" data-index="${i}" step="0.01" min="0" value="${o.tutar}" />
+          ${odemeSatirlari.length > 1 ? `<button type="button" class="odeme-satiri-sil" data-index="${i}">✕</button>` : ""}
+        </div>`).join("")}
+    </div>
+    <button type="button" id="odeme-satiri-ekle-buton" class="btn-ikincil btn-kucuk" style="margin:6px 0 10px;">+ Ödeme Satırı Ekle</button>
+    <div class="odeme-kalan-satir ${Math.abs(kalan) <= 0.01 ? "tamam" : "eksik"}">
+      <span>Girilen Toplam</span><span id="odeme-girilen-tutar">${paraFormat(girilen)}</span>
+    </div>
+    <div class="odeme-kalan-satir ${Math.abs(kalan) <= 0.01 ? "tamam" : "eksik"}">
+      <span>Kalan</span><span id="odeme-kalan-tutar">${paraFormat(kalan)}</span>
+    </div>
+  `;
+}
+
+// Tutar inputuna her yazışta TÜM paneli yeniden çizmek yerine (klavye/odak
+// kaybolur) sadece özet satırlarını ve "Hesabı Kapat" butonunun aktifliğini
+// günceller.
+function odemeOzetGuncelle(toplamTutar) {
+  const girilen = odemeSatirlariToplami();
+  const kalan = Math.round((toplamTutar - girilen) * 100) / 100;
+  const girilenEl = document.getElementById("odeme-girilen-tutar");
+  const kalanEl = document.getElementById("odeme-kalan-tutar");
+  if (girilenEl) girilenEl.textContent = paraFormat(girilen);
+  if (kalanEl) {
+    kalanEl.textContent = paraFormat(kalan);
+    const tamamMi = Math.abs(kalan) <= 0.01;
+    kalanEl.closest(".odeme-kalan-satir")?.classList.toggle("tamam", tamamMi);
+    kalanEl.closest(".odeme-kalan-satir")?.classList.toggle("eksik", !tamamMi);
+    girilenEl.closest(".odeme-kalan-satir")?.classList.toggle("tamam", tamamMi);
+    girilenEl.closest(".odeme-kalan-satir")?.classList.toggle("eksik", !tamamMi);
+  }
+  const kapatButon = document.getElementById("hesap-kapat-buton");
+  if (kapatButon) kapatButon.disabled = Math.abs(kalan) > 0.01;
+}
+
 function renderEylemBanner() {
   const banner = document.getElementById("eylem-modu-banner");
   if (!eylemModu) { banner.hidden = true; return; }
@@ -744,7 +830,7 @@ async function masaKartiTiklandi(tiklananId) {
     return;
   }
   seciliMasaId = tiklananId;
-  seciliOdemeYontemi = "nakit";
+  odemeSatirlari = [];
   menuAcik = false;
   aktifKategori = "";
   aramaMetni = "";
@@ -760,6 +846,13 @@ function renderDetay() {
 
   const acikSiparisler = masaninAcikSiparisleri(masa.id).sort((a, b) => (a.olusturmaZamani?.toMillis?.() || 0) - (b.olusturmaZamani?.toMillis?.() || 0));
   const toplamTutar = acikSiparisler.reduce((acc, s) => acc + siparisTutari(s), 0);
+
+  // Ödeme satırları henüz kurulmadıysa (masa yeni seçildi/hesap az önce
+  // kapandı) tek satır olarak tüm tutarı varsayılan Nakit'e koy — kasa
+  // isterse bölüp yöntemleri değiştirebilir.
+  if (odemeSatirlari.length === 0 && toplamTutar > 0) {
+    odemeSatirlari = [{ yontem: "nakit", tutar: toplamTutar }];
+  }
 
   panel.innerHTML = `
     <div class="detay-panel-baslik">
@@ -800,23 +893,13 @@ function renderDetay() {
 
         <div class="toplam-satir"><span>Genel Toplam</span><span>${paraFormat(toplamTutar)}</span></div>
 
-        <div class="odeme-secim">
-          <button data-odeme="nakit" class="${seciliOdemeYontemi === "nakit" ? "secili" : ""}">💵 Nakit</button>
-          <button data-odeme="kart" class="${seciliOdemeYontemi === "kart" ? "secili" : ""}">💳 Kart</button>
-          <button data-odeme="yemek_ceki" class="${seciliOdemeYontemi === "yemek_ceki" ? "secili" : ""}">🎫 Yemek Çeki</button>
-        </div>
-        ${seciliOdemeYontemi === "yemek_ceki" ? `
-        <div class="form-alan yemek-ceki-marka-secim">
-          <label>Yemek Çeki Markası</label>
-          <select id="yemek-ceki-marka-select">
-            ${YEMEK_CEKI_MARKALARI.map((m) => `<option value="${escapeHtml(m)}" ${seciliYemekCekiMarkasi === m ? "selected" : ""}>${escapeHtml(m)}</option>`).join("")}
-          </select>
-        </div>` : ""}
+        ${odemeSatirlariHtml(toplamTutar)}
 
         <div class="detay-eylemler">
+          <button id="hesap-bol-buton" class="btn-ikincil btn-tam">➗ Hesabı Böl</button>
           <button id="fis-yazdir-buton" class="btn-ikincil btn-tam">🖨️ Fiş Yazdır</button>
-          <button id="hesap-kapat-buton" class="btn-yesil btn-tam">Hesabı Kapat</button>
         </div>
+        <button id="hesap-kapat-buton" class="btn-yesil btn-tam" style="margin-top:8px;" ${Math.abs(toplamTutar - odemeSatirlariToplami()) > 0.01 ? "disabled" : ""}>Hesabı Kapat</button>
       `}
 
     <button id="menu-goster-buton" class="btn-ikincil btn-tam" style="margin-top:14px;">
@@ -868,8 +951,30 @@ function renderDetay() {
     iptalModaliGoster(acikSiparisler.find((s) => s.id === b.dataset.siparis));
   }));
 
-  panel.querySelectorAll("[data-odeme]").forEach((b) => b.addEventListener("click", () => { seciliOdemeYontemi = b.dataset.odeme; renderDetay(); }));
-  panel.querySelector("#yemek-ceki-marka-select")?.addEventListener("change", (e) => { seciliYemekCekiMarkasi = e.target.value; });
+  panel.querySelectorAll(".odeme-yontem-select").forEach((sel) => sel.addEventListener("change", (e) => {
+    const i = Number(e.target.dataset.index);
+    odemeSatirlari[i].yontem = e.target.value;
+    if (e.target.value === "yemek_ceki" && !odemeSatirlari[i].marka) odemeSatirlari[i].marka = YEMEK_CEKI_MARKALARI[0];
+    renderDetay();
+  }));
+  panel.querySelectorAll(".odeme-marka-select").forEach((sel) => sel.addEventListener("change", (e) => {
+    odemeSatirlari[Number(e.target.dataset.index)].marka = e.target.value;
+  }));
+  panel.querySelectorAll(".odeme-tutar-input").forEach((inp) => inp.addEventListener("input", (e) => {
+    odemeSatirlari[Number(e.target.dataset.index)].tutar = Number(e.target.value) || 0;
+    odemeOzetGuncelle(toplamTutar);
+  }));
+  panel.querySelectorAll(".odeme-satiri-sil").forEach((b) => b.addEventListener("click", () => {
+    odemeSatirlari.splice(Number(b.dataset.index), 1);
+    renderDetay();
+  }));
+  panel.querySelector("#odeme-satiri-ekle-buton")?.addEventListener("click", () => {
+    const kalan = Math.round((toplamTutar - odemeSatirlariToplami()) * 100) / 100;
+    odemeSatirlari.push({ yontem: "nakit", tutar: kalan > 0 ? kalan : 0 });
+    renderDetay();
+  });
+  panel.querySelector("#hesap-bol-kisayol-buton")?.addEventListener("click", () => hesabiBolModaliGoster(toplamTutar, acikSiparisler, "esit"));
+  panel.querySelector("#hesap-bol-buton")?.addEventListener("click", () => hesabiBolModaliGoster(toplamTutar, acikSiparisler, "esit"));
   panel.querySelector("#fis-yazdir-buton")?.addEventListener("click", () => fisYazdir(masa, acikSiparisler, toplamTutar));
   panel.querySelector("#hesap-kapat-buton")?.addEventListener("click", () => hesabiKapat(masa, acikSiparisler, toplamTutar));
 
@@ -889,6 +994,130 @@ function renderDetay() {
   }
 
   sepetBarGuncelle();
+}
+
+// Hesabı Böl: masadaki toplam hesabı birden fazla kişiye paylaştırma
+// yardımcısı. İki mod: "Eşit Böl" (kişi sayısına böler) ve "Ürün Bazlı Böl"
+// (her ürünü tek tek bir kişiye atayarak kişi başı tutarı hesaplar). Sonuçta
+// üretilen tutarlar, ana paneldeki "ödeme satırları"na yazılır — her kişi
+// kendi payını istediği yöntemle (nakit/kart/yemek çeki) ödeyebilir.
+function hesabiBolModaliGoster(toplamTutar, acikSiparisler, baslangicMod) {
+  let mod = baslangicMod || "esit";
+  let kisiSayisi = 2;
+  // Ürün bazlı bölme için: her sipariş kaleminin ADEDİ kadar tekil "birim"
+  // oluşturulur (2 adet aynı üründen biri Kişi 1'e, diğeri Kişi 2'ye
+  // atanabilsin diye) — kisiIndex null = henüz atanmadı.
+  const kalemBirimleri = [];
+  acikSiparisler.forEach((s) => (s.urunler || []).forEach((k) => {
+    for (let i = 0; i < k.adet; i++) kalemBirimleri.push({ ad: k.ad, fiyat: Number(k.fiyat) || 0, kisiIndex: null });
+  }));
+  let aktifKisiIndex = 0;
+
+  const katman = document.createElement("div");
+  katman.className = "modal-katman";
+
+  function kisiTutari(i) {
+    return kalemBirimleri.filter((k) => k.kisiIndex === i).reduce((acc, k) => acc + k.fiyat, 0);
+  }
+
+  function icerik() {
+    const modSecimHtml = `
+      <div class="hesap-bol-mod-secim">
+        <button type="button" class="btn-ikincil btn-kucuk ${mod === "esit" ? "secili" : ""}" data-mod="esit">Eşit Böl</button>
+        <button type="button" class="btn-ikincil btn-kucuk ${mod === "urun" ? "secili" : ""}" data-mod="urun">Ürün Bazlı Böl</button>
+      </div>`;
+
+    if (mod === "esit") {
+      const kisiBasi = Math.round((toplamTutar / kisiSayisi) * 100) / 100;
+      return `
+        <h3>➗ Hesabı Böl</h3>
+        ${modSecimHtml}
+        <div class="form-alan"><label>Kişi Sayısı</label><input id="hesap-bol-kisi-sayisi" type="number" min="2" max="20" value="${kisiSayisi}" /></div>
+        <div class="gs-satir gs-vurgu"><span>Kişi Başı</span><span>${paraFormat(kisiBasi)}</span></div>
+        <button type="button" id="hesap-bol-uygula-buton" class="btn-birincil btn-tam">Ödeme Satırlarını Oluştur (${kisiSayisi} Eşit Parça)</button>
+      `;
+    }
+
+    const tumuAtandiMi = kalemBirimleri.every((k) => k.kisiIndex !== null);
+    return `
+      <h3>➗ Hesabı Böl — Ürün Bazlı</h3>
+      ${modSecimHtml}
+      <p style="font-size:12px;color:var(--renk-yazi-soluk);">Önce bir kişi seçin, sonra o kişiye ait ürünlere dokunun.</p>
+      <div class="hesap-bol-kisi-cipler">
+        ${Array.from({ length: kisiSayisi }, (_, i) => `
+          <div class="hesap-bol-kisi-cip ${aktifKisiIndex === i ? "aktif" : ""}" data-kisi="${i}">Kişi ${i + 1}<span class="hesap-bol-kisi-tutar">${paraFormat(kisiTutari(i))}</span></div>
+        `).join("")}
+        <button type="button" class="hesap-bol-kisi-ekle" id="hesap-bol-kisi-ekle-buton">+ Kişi</button>
+      </div>
+      <div class="hesap-bol-urun-liste">
+        ${kalemBirimleri.map((k, i) => `
+          <div class="hesap-bol-urun-satir ${k.kisiIndex !== null ? "atanmis" : ""}" data-kalem="${i}">
+            <span>${escapeHtml(k.ad)}</span>
+            <span>${paraFormat(k.fiyat)}</span>
+            <span class="hesap-bol-urun-etiket">${k.kisiIndex !== null ? `Kişi ${k.kisiIndex + 1}` : "—"}</span>
+          </div>`).join("")}
+      </div>
+      ${!tumuAtandiMi ? `<p style="font-size:12px;color:var(--renk-kirmizi);">Henüz atanmamış ürünler var.</p>` : ""}
+      <button type="button" id="hesap-bol-uygula-buton" class="btn-birincil btn-tam" ${!tumuAtandiMi ? "disabled" : ""}>Ödeme Satırlarını Oluştur</button>
+    `;
+  }
+
+  katman.innerHTML = `<div class="modal-kutu" id="hesap-bol-icerik" style="position:relative;"><button class="modal-kapat">&times;</button>${icerik()}</div>`;
+  document.body.appendChild(katman);
+  katman.addEventListener("click", (e) => { if (e.target === katman) katman.remove(); });
+
+  function bagla() {
+    const icerikEl = katman.querySelector("#hesap-bol-icerik");
+    icerikEl.querySelector(".modal-kapat").addEventListener("click", () => katman.remove());
+    icerikEl.querySelectorAll("[data-mod]").forEach((b) => b.addEventListener("click", () => {
+      mod = b.dataset.mod;
+      icerikEl.innerHTML = `<button class="modal-kapat">&times;</button>${icerik()}`;
+      bagla();
+    }));
+
+    if (mod === "esit") {
+      const kisiSayisiInput = icerikEl.querySelector("#hesap-bol-kisi-sayisi");
+      kisiSayisiInput.addEventListener("input", (e) => {
+        kisiSayisi = Math.max(2, Number(e.target.value) || 2);
+        icerikEl.innerHTML = `<button class="modal-kapat">&times;</button>${icerik()}`;
+        bagla();
+      });
+      icerikEl.querySelector("#hesap-bol-uygula-buton").addEventListener("click", () => {
+        const kisiBasi = Math.round((toplamTutar / kisiSayisi) * 100) / 100;
+        const satirlar = Array.from({ length: kisiSayisi }, () => ({ yontem: "nakit", tutar: kisiBasi }));
+        // Yuvarlama farkını son satıra ekle ki toplam TAM tutara eşit olsun.
+        const fark = Math.round((toplamTutar - kisiBasi * kisiSayisi) * 100) / 100;
+        satirlar[satirlar.length - 1].tutar = Math.round((satirlar[satirlar.length - 1].tutar + fark) * 100) / 100;
+        odemeSatirlari = satirlar;
+        katman.remove();
+        renderDetay();
+      });
+    } else {
+      icerikEl.querySelectorAll(".hesap-bol-kisi-cip").forEach((cip) => cip.addEventListener("click", () => {
+        aktifKisiIndex = Number(cip.dataset.kisi);
+        icerikEl.innerHTML = `<button class="modal-kapat">&times;</button>${icerik()}`;
+        bagla();
+      }));
+      icerikEl.querySelector("#hesap-bol-kisi-ekle-buton").addEventListener("click", () => {
+        kisiSayisi++;
+        icerikEl.innerHTML = `<button class="modal-kapat">&times;</button>${icerik()}`;
+        bagla();
+      });
+      icerikEl.querySelectorAll(".hesap-bol-urun-satir").forEach((satir) => satir.addEventListener("click", () => {
+        kalemBirimleri[Number(satir.dataset.kalem)].kisiIndex = aktifKisiIndex;
+        icerikEl.innerHTML = `<button class="modal-kapat">&times;</button>${icerik()}`;
+        bagla();
+      }));
+      icerikEl.querySelector("#hesap-bol-uygula-buton")?.addEventListener("click", () => {
+        const satirlar = Array.from({ length: kisiSayisi }, (_, i) => ({ yontem: "nakit", tutar: kisiTutari(i) })).filter((o) => o.tutar > 0);
+        if (satirlar.length === 0) { bildirimGoster("Önce ürünleri kişilere atayın.", "uyari"); return; }
+        odemeSatirlari = satirlar;
+        katman.remove();
+        renderDetay();
+      });
+    }
+  }
+  bagla();
 }
 
 function renderMenuKategorileri() {
@@ -1214,7 +1443,8 @@ function fisYazdir(masa, siparisler, toplam) {
     <div class="cizgi"></div>
     <table><tr><td><b>TOPLAM</b></td><td style="text-align:right;"><b>${paraFormat(toplam)}</b></td></tr></table>
     <div class="cizgi"></div>
-    <p style="text-align:center;font-size:12px;">Ödeme: ${ODEME_YONTEMI_ETIKET[seciliOdemeYontemi]}${seciliOdemeYontemi === "yemek_ceki" ? ` (${escapeHtml(seciliYemekCekiMarkasi)})` : ""}</p>
+    ${odemeSatirlari.map((o) => `
+    <p style="text-align:center;font-size:12px;">Ödeme: ${ODEME_YONTEMI_ETIKET[o.yontem]}${o.yontem === "yemek_ceki" ? ` (${escapeHtml(o.marka || "")})` : ""} — ${paraFormat(o.tutar)}</p>`).join("")}
     <p style="text-align:center;font-size:12px;">${new Date().toLocaleString("tr-TR")}</p>
     <p style="text-align:center;font-size:12px;">Afiyet olsun, bizi tercih ettiğiniz için teşekkürler!</p>
   `;
@@ -1222,12 +1452,26 @@ function fisYazdir(masa, siparisler, toplam) {
 }
 
 async function hesabiKapat(masa, siparisler, toplam) {
-  if (seciliOdemeYontemi === "yemek_ceki" && !seciliYemekCekiMarkasi) {
-    bildirimGoster("Yemek çeki markası seçin.", "uyari");
+  const girilen = odemeSatirlariToplami();
+  if (Math.abs(toplam - girilen) > 0.01) {
+    bildirimGoster(`Ödeme satırlarının toplamı (${paraFormat(girilen)}) hesap tutarına (${paraFormat(toplam)}) eşit değil.`, "uyari");
     return;
   }
-  const odemeEtiket = ODEME_YONTEMI_ETIKET[seciliOdemeYontemi] + (seciliOdemeYontemi === "yemek_ceki" ? ` (${seciliYemekCekiMarkasi})` : "");
-  if (!confirm(`${masa.ad} hesabını ${odemeEtiket} olarak ${paraFormat(toplam)} tutarında kapatmak istediğinize emin misiniz?`)) return;
+  if (odemeSatirlari.some((o) => o.yontem === "yemek_ceki" && !o.marka)) {
+    bildirimGoster("Yemek çeki satırları için marka seçin.", "uyari");
+    return;
+  }
+  const odemeOzetiMetni = odemeSatirlari
+    .map((o) => `${ODEME_YONTEMI_ETIKET[o.yontem]}${o.yontem === "yemek_ceki" ? ` (${o.marka})` : ""}: ${paraFormat(o.tutar)}`)
+    .join("\n");
+  if (!confirm(`${masa.ad} hesabı ${paraFormat(toplam)} tutarında kapatılacak:\n\n${odemeOzetiMetni}\n\nDevam edilsin mi?`)) return;
+
+  const dagilikYontemSayisi = new Set(odemeSatirlari.map((o) => o.yontem)).size;
+  const tekYontem = dagilikYontemSayisi === 1 ? odemeSatirlari[0].yontem : "karma";
+  const tekYemekCekiMarkasi = dagilikYontemSayisi === 1 && odemeSatirlari[0].yontem === "yemek_ceki" && odemeSatirlari.length === 1
+    ? odemeSatirlari[0].marka
+    : null;
+
   try {
     await addDoc(collection(db, "adisyonlar"), {
       masaId: masa.id,
@@ -1235,8 +1479,13 @@ async function hesabiKapat(masa, siparisler, toplam) {
       subeId: masa.subeId || null,
       siparisIdler: siparisler.map((s) => s.id),
       toplamTutar: toplam,
-      odemeYontemi: seciliOdemeYontemi,
-      yemekCekiMarkasi: seciliOdemeYontemi === "yemek_ceki" ? seciliYemekCekiMarkasi : null,
+      // odemeler: bölüm bölüm ödenen her parça (yöntem+tutar+marka).
+      // odemeYontemi/yemekCekiMarkasi: TEK yöntemle ödendiyse geriye dönük
+      // uyumluluk ve basit raporlama için ayrıca tutulur; birden fazla
+      // yöntem kullanıldıysa "karma" olarak işaretlenir (kırılım odemeler'de).
+      odemeler: odemeSatirlari.map((o) => ({ yontem: o.yontem, tutar: Math.round(o.tutar * 100) / 100, marka: o.yontem === "yemek_ceki" ? o.marka : null })),
+      odemeYontemi: tekYontem,
+      yemekCekiMarkasi: tekYemekCekiMarkasi,
       kapananKullanici: kullanici.ad,
       kapanmaZamani: serverTimestamp(),
     });
@@ -1244,6 +1493,7 @@ async function hesabiKapat(masa, siparisler, toplam) {
     await updateDoc(doc(db, "masalar", masa.id), { durum: "bos", garsonCagirildi: false });
     bildirimGoster("Hesap kapatıldı.", "basari");
     seciliMasaId = null;
+    odemeSatirlari = [];
     renderMasalar();
     renderDetay();
   } catch (err) {
