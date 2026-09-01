@@ -5,9 +5,11 @@ import {
 import { sayfaKorumaBaslat, cikisYap } from "../../shared/auth.js";
 import { siparisOlustur, siparisiOnayla, siparisiGuncelle, siparisiIptalEt } from "../../shared/siparis.js";
 import {
-  paraFormat, escapeHtml, tarihFormat, bildirimGoster, debounce, MASA_DURUMLARI, SIPARIS_DURUMLARI,
-  ALERJEN_LISTESI, kategorilerSirali, kategoriVeAltlariIds, temaBaslat,
+  paraFormat, escapeHtml, tarihFormat, saatFormat, tarihAnahtari, bildirimGoster, debounce,
+  MASA_DURUMLARI, SIPARIS_DURUMLARI, ALERJEN_LISTESI, kategorilerSirali, kategoriVeAltlariIds, temaBaslat,
 } from "../../shared/utils.js";
+
+const ROL_ETIKET = { admin: "Admin", garson: "Garson", kasa: "Kasa", mutfak: "Mutfak" };
 
 temaBaslat();
 
@@ -34,6 +36,16 @@ let eylemModu = null;
 // { garsonId, garsonAdi } | 'kaldir' | null
 let garsonAtamaModu = null;
 let garsonAtamaPaneliAcik = false;
+
+// Personel puantajı / ön muhasebe / gün sonu için durum
+let subePersoneliCache = [];
+let puantajBugunCache = [];
+let kasaHareketleriBugunCache = [];
+let adisyonlarBugunCache = [];
+let subeDokumani = null;
+let gunSonuBugunKaydi = null;
+let puantajPaneliAcik = false;
+let kasaHareketPaneliAcik = false;
 
 function sepetAnahtari() { return `sepet_kasa_${seciliMasaId}`; }
 function sepetOku() { try { return JSON.parse(localStorage.getItem(sepetAnahtari())) || []; } catch { return []; } }
@@ -85,10 +97,51 @@ async function baslat() {
   });
 
   onSnapshot(query(collection(db, "kullanicilar")), (snap) => {
-    garsonlarCache = snap.docs
-      .map((d) => ({ id: d.id, ...d.data() }))
-      .filter((p) => p.rol === "garson" && p.aktif !== false && (!kullanici.subeId || p.subeId === kullanici.subeId));
+    const tumPersonel = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    subePersoneliCache = tumPersonel.filter((p) => p.rol !== "admin" && p.aktif !== false && (!kullanici.subeId || p.subeId === kullanici.subeId));
+    garsonlarCache = subePersoneliCache.filter((p) => p.rol === "garson");
     if (garsonAtamaPaneliAcik) renderGarsonAtamaPaneli();
+    if (puantajPaneliAcik) renderPuantajPaneli();
+  });
+
+  if (kullanici.subeId) {
+    onSnapshot(doc(db, "subeler", kullanici.subeId), (snap) => {
+      subeDokumani = snap.exists() ? { id: snap.id, ...snap.data() } : null;
+    });
+  }
+
+  const puantajQuery = kullanici.subeId
+    ? query(collection(db, "puantaj"), where("subeId", "==", kullanici.subeId))
+    : query(collection(db, "puantaj"));
+  onSnapshot(puantajQuery, (snap) => {
+    const tumu = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    puantajBugunCache = tumu.filter((p) => p.tarih === tarihAnahtari());
+    if (puantajPaneliAcik) renderPuantajPaneli();
+  });
+
+  const kasaHareketQuery = kullanici.subeId
+    ? query(collection(db, "kasaHareketleri"), where("subeId", "==", kullanici.subeId))
+    : query(collection(db, "kasaHareketleri"));
+  onSnapshot(kasaHareketQuery, (snap) => {
+    const tumu = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    kasaHareketleriBugunCache = tumu.filter((k) => k.tarih === tarihAnahtari());
+    if (kasaHareketPaneliAcik) renderKasaHareketPaneli();
+  });
+
+  const adisyonlarQuery = kullanici.subeId
+    ? query(collection(db, "adisyonlar"), where("subeId", "==", kullanici.subeId))
+    : query(collection(db, "adisyonlar"));
+  onSnapshot(adisyonlarQuery, (snap) => {
+    const tumu = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    adisyonlarBugunCache = tumu.filter((a) => a.kapanmaZamani?.toDate && tarihAnahtari(a.kapanmaZamani.toDate()) === tarihAnahtari());
+  });
+
+  const gunSonuQuery = kullanici.subeId
+    ? query(collection(db, "gunSonuKapanislari"), where("subeId", "==", kullanici.subeId))
+    : query(collection(db, "gunSonuKapanislari"));
+  onSnapshot(gunSonuQuery, (snap) => {
+    const tumu = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    gunSonuBugunKaydi = tumu.find((g) => g.tarih === tarihAnahtari()) || null;
   });
 
   document.getElementById("garson-atama-goster-buton").addEventListener("click", () => {
@@ -97,6 +150,239 @@ async function baslat() {
     document.getElementById("garson-atama-paneli").hidden = !garsonAtamaPaneliAcik;
     document.getElementById("garson-atama-goster-buton").textContent = garsonAtamaPaneliAcik ? "✕ Kapat" : "👥 Garson Ata";
     if (garsonAtamaPaneliAcik) renderGarsonAtamaPaneli();
+  });
+
+  document.getElementById("puantaj-goster-buton").addEventListener("click", () => {
+    puantajPaneliAcik = !puantajPaneliAcik;
+    document.getElementById("puantaj-paneli").hidden = !puantajPaneliAcik;
+    if (puantajPaneliAcik) renderPuantajPaneli();
+  });
+
+  document.getElementById("kasa-hareket-goster-buton").addEventListener("click", () => {
+    kasaHareketPaneliAcik = !kasaHareketPaneliAcik;
+    document.getElementById("kasa-hareket-paneli").hidden = !kasaHareketPaneliAcik;
+    if (kasaHareketPaneliAcik) renderKasaHareketPaneli();
+  });
+
+  document.getElementById("kasa-hareket-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const gonderButon = e.target.querySelector('button[type="submit"]');
+    gonderButon.disabled = true;
+    try {
+      await addDoc(collection(db, "kasaHareketleri"), {
+        subeId: kullanici.subeId || null,
+        subeAdi: subeDokumani?.ad || "",
+        tur: fd.get("tur"),
+        tutar: Number(fd.get("tutar")) || 0,
+        aciklama: fd.get("aciklama")?.trim() || "",
+        tarih: tarihAnahtari(),
+        zaman: serverTimestamp(),
+        yapanKullanici: kullanici.ad,
+        yapanKullaniciId: auth.currentUser?.uid || null,
+      });
+      bildirimGoster("Kasa hareketi eklendi.", "basari");
+      e.target.reset();
+    } catch (err) {
+      bildirimGoster("Hata: " + err.message, "hata");
+    } finally {
+      gonderButon.disabled = false;
+    }
+  });
+
+  document.getElementById("gun-sonu-goster-buton").addEventListener("click", () => gunSonuModaliGoster());
+}
+
+function renderPuantajPaneli() {
+  const el = document.getElementById("puantaj-listesi");
+  if (subePersoneliCache.length === 0) {
+    el.innerHTML = `<div class="bos-durum">Şubenize tanımlı personel bulunamadı.</div>`;
+    return;
+  }
+  const liste = subePersoneliCache.slice().sort((a, b) => (a.ad || "").localeCompare(b.ad || "", "tr"));
+  el.innerHTML = liste.map((p) => {
+    const kayit = puantajBugunCache.find((k) => k.personelId === p.id && !k.cikisZamani) || puantajBugunCache.filter((k) => k.personelId === p.id).sort((a, b) => (b.girisZamani?.toMillis?.() || 0) - (a.girisZamani?.toMillis?.() || 0))[0];
+    let durumHtml;
+    if (!kayit) {
+      durumHtml = `<span class="puantaj-durum bekliyor">Henüz gelmedi</span><button class="btn-yesil btn-kucuk" data-giris="${p.id}">Giriş Yap</button>`;
+    } else if (!kayit.cikisZamani) {
+      durumHtml = `<span class="puantaj-durum geldi">${saatFormat(kayit.girisZamani)}'te geldi${kayit.gecGeldi ? ` <b class="puantaj-gec">(geç)</b>` : ""}</span><button class="btn-kirmizi btn-kucuk" data-cikis="${kayit.id}">Çıkış Yap</button>`;
+    } else {
+      durumHtml = `<span class="puantaj-durum tamam">${saatFormat(kayit.girisZamani)} → ${saatFormat(kayit.cikisZamani)}${kayit.gecGeldi ? ` <b class="puantaj-gec">geç geldi</b>` : ""}${kayit.erkenCikti ? ` <b class="puantaj-erken">erken çıktı</b>` : ""}</span>`;
+    }
+    return `
+    <div class="liste-satir">
+      <div class="ana-bilgi"><strong>${escapeHtml(p.ad)}</strong><span>${ROL_ETIKET[p.rol] || p.rol}</span></div>
+      <div class="puantaj-eylem">${durumHtml}</div>
+    </div>`;
+  }).join("");
+
+  el.querySelectorAll("[data-giris]").forEach((b) => b.addEventListener("click", () => girisKaydet(b.dataset.giris)));
+  el.querySelectorAll("[data-cikis]").forEach((b) => b.addEventListener("click", () => cikisKaydet(b.dataset.cikis)));
+}
+
+async function girisKaydet(personelId) {
+  const p = subePersoneliCache.find((x) => x.id === personelId);
+  if (!p) return;
+  const simdi = new Date();
+  let gecGeldi = false;
+  if (p.mesaiBaslangic) {
+    const [hh, mm] = p.mesaiBaslangic.split(":").map(Number);
+    const beklenen = new Date(simdi);
+    beklenen.setHours(hh, mm + 5, 0, 0); // 5 dk tolerans
+    gecGeldi = simdi > beklenen;
+  }
+  try {
+    await addDoc(collection(db, "puantaj"), {
+      personelId: p.id,
+      personelAdi: p.ad,
+      rol: p.rol,
+      subeId: kullanici.subeId || p.subeId || null,
+      subeAdi: subeDokumani?.ad || "",
+      tarih: tarihAnahtari(),
+      girisZamani: serverTimestamp(),
+      cikisZamani: null,
+      gecGeldi,
+      erkenCikti: false,
+    });
+    bildirimGoster(`${p.ad} giriş yaptı.`, "basari");
+  } catch (err) {
+    bildirimGoster("Hata: " + err.message, "hata");
+  }
+}
+
+async function cikisKaydet(puantajId) {
+  const kayit = puantajBugunCache.find((k) => k.id === puantajId);
+  const p = subePersoneliCache.find((x) => x.id === kayit?.personelId);
+  const simdi = new Date();
+  let erkenCikti = false;
+  if (p?.mesaiBitis) {
+    const [hh, mm] = p.mesaiBitis.split(":").map(Number);
+    const beklenen = new Date(simdi);
+    beklenen.setHours(hh, mm, 0, 0);
+    erkenCikti = simdi < beklenen;
+  }
+  try {
+    await updateDoc(doc(db, "puantaj", puantajId), { cikisZamani: serverTimestamp(), erkenCikti });
+    bildirimGoster("Çıkış kaydedildi.", "basari");
+  } catch (err) {
+    bildirimGoster("Hata: " + err.message, "hata");
+  }
+}
+
+function renderKasaHareketPaneli() {
+  const el = document.getElementById("kasa-hareket-listesi");
+  const toplamGiris = kasaHareketleriBugunCache.filter((k) => k.tur === "nakit_giris").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
+  const toplamCikis = kasaHareketleriBugunCache.filter((k) => k.tur === "nakit_cikis").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
+  const siraliListe = kasaHareketleriBugunCache.slice().sort((a, b) => (b.zaman?.toMillis?.() || 0) - (a.zaman?.toMillis?.() || 0));
+
+  el.innerHTML = `
+    <div class="kasa-hareket-ozet">
+      <span>Bugün Giriş: <b style="color:var(--renk-yesil)">${paraFormat(toplamGiris)}</b></span>
+      <span>Bugün Çıkış: <b style="color:var(--renk-kirmizi)">${paraFormat(toplamCikis)}</b></span>
+    </div>
+    <div class="liste-alani">
+      ${siraliListe.length === 0 ? `<div class="bos-durum">Bugün henüz kasa hareketi yok.</div>` : siraliListe.map((k) => `
+        <div class="liste-satir">
+          <div class="ana-bilgi">
+            <strong style="color:${k.tur === "nakit_giris" ? "var(--renk-yesil)" : "var(--renk-kirmizi)"}">${k.tur === "nakit_giris" ? "⬆️ Giriş" : "⬇️ Çıkış"} — ${paraFormat(k.tutar)}</strong>
+            <span>${escapeHtml(k.aciklama || "")} ${k.aciklama ? "· " : ""}${escapeHtml(k.yapanKullanici || "")} · ${saatFormat(k.zaman)}</span>
+          </div>
+        </div>`).join("")}
+    </div>
+  `;
+}
+
+function gunSonuModaliGoster() {
+  if (!kullanici.subeId) {
+    bildirimGoster("Gün sonu işlemi için bir şubeye bağlı olmalısınız.", "uyari");
+    return;
+  }
+  const katman = document.createElement("div");
+  katman.className = "modal-katman";
+
+  if (gunSonuBugunKaydi) {
+    const g = gunSonuBugunKaydi;
+    katman.innerHTML = `
+      <div class="modal-kutu" style="position:relative;">
+        <button class="modal-kapat">&times;</button>
+        <h2>🌙 Gün Sonu — Bugün Kapatıldı</h2>
+        <div class="gun-sonu-ozet">
+          <div class="gs-satir"><span>Devir (dünden)</span><span>${paraFormat(g.devirTutari)}</span></div>
+          <div class="gs-satir"><span>Nakit Satış</span><span>${paraFormat(g.nakitSatisToplam)}</span></div>
+          <div class="gs-satir"><span>Kart Satış</span><span>${paraFormat(g.kartSatisToplam)}</span></div>
+          <div class="gs-satir"><span>Manuel Nakit Giriş</span><span>${paraFormat(g.manuelNakitGiris)}</span></div>
+          <div class="gs-satir"><span>Manuel Nakit Çıkış</span><span>${paraFormat(g.manuelNakitCikis)}</span></div>
+          <div class="gs-satir gs-vurgu"><span>Beklenen Nakit</span><span>${paraFormat(g.beklenenNakit)}</span></div>
+          <div class="gs-satir gs-vurgu"><span>Sayılan Nakit</span><span>${paraFormat(g.sayilanNakit)}</span></div>
+          <div class="gs-satir gs-vurgu" style="color:${g.fark === 0 ? "var(--renk-yesil)" : "var(--renk-kirmizi)"}"><span>Fark</span><span>${paraFormat(g.fark)}</span></div>
+        </div>
+        <p style="font-size:12px;color:var(--renk-yazi-soluk);">Kapatan: ${escapeHtml(g.kapatanKullanici || "")} · ${tarihFormat(g.kapanmaZamani)}</p>
+      </div>`;
+    document.body.appendChild(katman);
+    katman.querySelector(".modal-kapat").addEventListener("click", () => katman.remove());
+    katman.addEventListener("click", (e) => { if (e.target === katman) katman.remove(); });
+    return;
+  }
+
+  const nakitSatis = adisyonlarBugunCache.filter((a) => a.odemeYontemi === "nakit").reduce((acc, a) => acc + Number(a.toplamTutar || 0), 0);
+  const kartSatis = adisyonlarBugunCache.filter((a) => a.odemeYontemi === "kart").reduce((acc, a) => acc + Number(a.toplamTutar || 0), 0);
+  const manuelGiris = kasaHareketleriBugunCache.filter((k) => k.tur === "nakit_giris").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
+  const manuelCikis = kasaHareketleriBugunCache.filter((k) => k.tur === "nakit_cikis").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
+  const devir = Number(subeDokumani?.sonKasaDevri) || 0;
+  const beklenenNakit = Math.round((devir + nakitSatis + manuelGiris - manuelCikis) * 100) / 100;
+
+  katman.innerHTML = `
+    <div class="modal-kutu" style="position:relative;">
+      <button class="modal-kapat">&times;</button>
+      <h2>🌙 Gün Sonu — Kasa Sayımı</h2>
+      <div class="gun-sonu-ozet">
+        <div class="gs-satir"><span>Devir (dünden)</span><span>${paraFormat(devir)}</span></div>
+        <div class="gs-satir"><span>Bugünkü Nakit Satış</span><span>${paraFormat(nakitSatis)}</span></div>
+        <div class="gs-satir"><span>Bugünkü Kart Satış</span><span>${paraFormat(kartSatis)}</span></div>
+        <div class="gs-satir"><span>Manuel Nakit Giriş</span><span>${paraFormat(manuelGiris)}</span></div>
+        <div class="gs-satir"><span>Manuel Nakit Çıkış</span><span>${paraFormat(manuelCikis)}</span></div>
+        <div class="gs-satir gs-vurgu"><span>Beklenen Nakit (kasada olması gereken)</span><span>${paraFormat(beklenenNakit)}</span></div>
+      </div>
+      <div class="form-alan"><label>Sayılan Nakit Tutar (fiilen kasada sayılan)</label><input id="sayilan-tutar" type="number" step="0.01" min="0" required /></div>
+      <button id="gun-sonu-kapat-buton" class="btn-birincil btn-tam">Gün Sonunu Kapat</button>
+    </div>`;
+  document.body.appendChild(katman);
+  katman.querySelector(".modal-kapat").addEventListener("click", () => katman.remove());
+  katman.addEventListener("click", (e) => { if (e.target === katman) katman.remove(); });
+
+  katman.querySelector("#gun-sonu-kapat-buton").addEventListener("click", async () => {
+    const sayilanInput = katman.querySelector("#sayilan-tutar");
+    const sayilan = Number(sayilanInput.value);
+    if (!(sayilan >= 0)) { bildirimGoster("Geçerli bir tutar girin.", "uyari"); return; }
+    const fark = Math.round((sayilan - beklenenNakit) * 100) / 100;
+    if (!confirm(`Gün sonu kapatılacak.\n\nBeklenen: ${paraFormat(beklenenNakit)}\nSayılan: ${paraFormat(sayilan)}\nFark: ${paraFormat(fark)}\n\nDevam edilsin mi? Bu işlem geri alınamaz.`)) return;
+    const buton = katman.querySelector("#gun-sonu-kapat-buton");
+    buton.disabled = true;
+    try {
+      await addDoc(collection(db, "gunSonuKapanislari"), {
+        subeId: kullanici.subeId,
+        subeAdi: subeDokumani?.ad || "",
+        tarih: tarihAnahtari(),
+        devirTutari: devir,
+        nakitSatisToplam: nakitSatis,
+        kartSatisToplam: kartSatis,
+        manuelNakitGiris: manuelGiris,
+        manuelNakitCikis: manuelCikis,
+        beklenenNakit,
+        sayilanNakit: sayilan,
+        fark,
+        kapatanKullanici: kullanici.ad,
+        kapatanKullaniciId: auth.currentUser?.uid || null,
+        kapanmaZamani: serverTimestamp(),
+      });
+      await updateDoc(doc(db, "subeler", kullanici.subeId), { sonKasaDevri: sayilan, sonGunSonuTarihi: tarihAnahtari() });
+      bildirimGoster("Gün sonu kapatıldı.", "basari");
+      katman.remove();
+    } catch (err) {
+      bildirimGoster("Hata: " + err.message, "hata");
+      buton.disabled = false;
+    }
   });
 }
 

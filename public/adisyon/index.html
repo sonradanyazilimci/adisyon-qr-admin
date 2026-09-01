@@ -19,11 +19,33 @@
         <h1 id="kasa-baslik">Adisyon / Kasa</h1>
         <p id="kasa-alt-baslik">Şube</p>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;">
+      <div class="adisyon-ust-eylemler">
+        <button id="puantaj-goster-buton" class="btn-ikincil btn-kucuk">🕐 Puantaj</button>
+        <button id="kasa-hareket-goster-buton" class="btn-ikincil btn-kucuk">💰 Kasa Hareketi</button>
+        <button id="gun-sonu-goster-buton" class="btn-birincil btn-kucuk">🌙 Gün Sonu</button>
         <button id="tema-degistir-buton" class="tema-degistir-buton" title="Tema değiştir">🌙</button>
         <button id="cikis-buton" class="btn-ikincil btn-kucuk">Çıkış</button>
       </div>
     </header>
+
+    <section id="puantaj-paneli" class="tam-genislik-panel yazdirma-gizle" hidden>
+      <h2>🕐 Personel Puantajı — Bugün</h2>
+      <div id="puantaj-listesi" class="liste-alani"></div>
+    </section>
+
+    <section id="kasa-hareket-paneli" class="tam-genislik-panel yazdirma-gizle" hidden>
+      <h2>💰 Kasa Hareketleri — Bugün</h2>
+      <form id="kasa-hareket-form" class="kasa-hareket-form">
+        <select name="tur" required>
+          <option value="nakit_giris">⬆️ Nakit Giriş</option>
+          <option value="nakit_cikis">⬇️ Nakit Çıkış</option>
+        </select>
+        <input name="tutar" type="number" step="0.01" min="0.01" placeholder="Tutar (₺)" required />
+        <input name="aciklama" type="text" placeholder="Açıklama (örn: değişik para, gider vb.)" />
+        <button type="submit" class="btn-birincil">Ekle</button>
+      </form>
+      <div id="kasa-hareket-listesi"></div>
+    </section>
 
     <main class="adisyon-govde yazdirma-gizle">
       <section class="masalar-panel">

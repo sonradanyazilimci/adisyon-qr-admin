@@ -179,5 +179,29 @@ service cloud.firestore {
       allow read: if true;
       allow write: if rol('admin');
     }
+
+    // Personel puantajı (giriş/çıkış saatleri) — kasa/admin girer, personel
+    // kendi kaydını da görebilir (garson kendi puantajını görsün diye read
+    // personel()'e açık, ama sadece kasa/admin yazabilir).
+    match /puantaj/{id} {
+      allow read: if personel();
+      allow write: if rol('admin') || rol('kasa');
+    }
+
+    // Ön muhasebe — manuel nakit/kart kasa hareketleri (satış dışı giriş/
+    // çıkış, ör. kasaya para ekleme, gider için nakit çıkışı). Finansal veri
+    // olduğu için sadece admin/kasa görebilir ve yazabilir.
+    match /kasaHareketleri/{id} {
+      allow read: if rol('admin') || rol('kasa');
+      allow write: if rol('admin') || rol('kasa');
+    }
+
+    // Gün sonu kasa sayımı / devir kayıtları — kasa oluşturur/okur, sadece
+    // admin düzeltir/siler (kapanmış bir gün kaydının bütünlüğünü korumak için).
+    match /gunSonuKapanislari/{id} {
+      allow read: if rol('admin') || rol('kasa');
+      allow create: if rol('admin') || rol('kasa');
+      allow update, delete: if rol('admin');
+    }
   }
 }

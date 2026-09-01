@@ -7,6 +7,8 @@ import * as urunler from "./urunler.js";
 import * as hammaddeler from "./hammaddeler.js";
 import * as masalar from "./masalar.js";
 import * as personel from "./personel.js";
+import * as puantaj from "./puantaj.js";
+import * as muhasebe from "./muhasebe.js";
 import * as raporlar from "./raporlar.js";
 import * as ayarlar from "./ayarlar.js";
 
@@ -18,6 +20,8 @@ const SEKME_BASLIKLARI = {
   hammaddeler: "Hammaddeler / Stok",
   masalar: "Masalar / QR Kodları",
   personel: "Personel",
+  puantaj: "Personel Puantajı",
+  muhasebe: "Ön Muhasebe",
   raporlar: "Raporlar",
   ayarlar: "Ayarlar",
 };
@@ -50,6 +54,8 @@ async function baslat() {
   urunler.baslat(); // kategoriler + hammaddeler cache'lerine bağımlı, sonra başlar
   masalar.baslat();
   personel.baslat();
+  puantaj.baslat();
+  muhasebe.baslat();
   raporlar.baslat();
   ayarlar.baslat();
   panel.baslat();

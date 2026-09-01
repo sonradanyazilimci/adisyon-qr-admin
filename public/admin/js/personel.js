@@ -86,6 +86,11 @@ function formGoster(personelDoc = null) {
           </div>
           <div class="form-alan" id="personel-sube-alani"><label>Şube</label><select name="subeId"><option value="">Seçiniz...</option>${subeSecenekleri}</select></div>
         </div>
+        <div class="form-satir" id="personel-mesai-alani">
+          <div class="form-alan"><label>Mesai Başlangıç (opsiyonel)</label><input name="mesaiBaslangic" type="time" value="${personelDoc?.mesaiBaslangic || ""}" /></div>
+          <div class="form-alan"><label>Mesai Bitiş (opsiyonel)</label><input name="mesaiBitis" type="time" value="${personelDoc?.mesaiBitis || ""}" /></div>
+        </div>
+        <p style="font-size:11px;color:var(--renk-yazi-soluk);margin-top:-8px;">Mesai saatleri girilirse, adisyon ekranındaki puantajda "geç geldi / erken çıktı" otomatik işaretlenir.</p>
         ${personelDoc ? `<div class="form-alan"><label><input type="checkbox" name="aktif" style="width:auto;" ${personelDoc.aktif !== false ? "checked" : ""}/> Aktif (girişe izinli)</label></div>` : ""}
         <button type="submit" class="btn-birincil btn-tam">${personelDoc ? "Kaydet" : "Ekle"}</button>
       </form>
@@ -97,8 +102,11 @@ function formGoster(personelDoc = null) {
 
   const rolSelect = katman.querySelector("#personel-rol-select");
   const subeAlani = katman.querySelector("#personel-sube-alani");
+  const mesaiAlani = katman.querySelector("#personel-mesai-alani");
   function subeAlaniniGuncelle() {
-    subeAlani.style.display = rolSelect.value === "admin" ? "none" : "block";
+    const adminMi = rolSelect.value === "admin";
+    subeAlani.style.display = adminMi ? "none" : "block";
+    mesaiAlani.style.display = adminMi ? "none" : "flex";
   }
   rolSelect.addEventListener("change", subeAlaniniGuncelle);
   subeAlaniniGuncelle();
@@ -110,12 +118,16 @@ function formGoster(personelDoc = null) {
     const fd = new FormData(e.target);
     const rol = fd.get("rol");
     const subeId = rol === "admin" ? null : fd.get("subeId") || null;
+    const mesaiBaslangic = rol === "admin" ? "" : fd.get("mesaiBaslangic") || "";
+    const mesaiBitis = rol === "admin" ? "" : fd.get("mesaiBitis") || "";
     try {
       if (personelDoc) {
         await updateDoc(doc(db, "kullanicilar", personelDoc.id), {
           ad: fd.get("ad").trim(),
           rol,
           subeId,
+          mesaiBaslangic,
+          mesaiBitis,
           aktif: fd.get("aktif") === "on",
         });
         bildirimGoster("Personel güncellendi.", "basari");
@@ -126,6 +138,8 @@ function formGoster(personelDoc = null) {
           password: fd.get("password"),
           rol,
           subeId,
+          mesaiBaslangic,
+          mesaiBitis,
         });
         bildirimGoster("Personel eklendi.", "basari");
       }
@@ -142,7 +156,7 @@ function formGoster(personelDoc = null) {
 // kullanıcıyı orada oluşturmak — böylece admin'in mevcut oturumu (birincil
 // app) etkilenmez/değişmez. Ardından profil bilgisi normal (birincil)
 // bağlantı üzerinden Firestore'a yazılır.
-async function personelOlustur({ ad, email, password, rol, subeId }) {
+async function personelOlustur({ ad, email, password, rol, subeId, mesaiBaslangic, mesaiBitis }) {
   const ikincilApp = initializeApp(app.options, "personel-olustur-" + Date.now());
   try {
     const ikincilAuth = getAuth(ikincilApp);
@@ -155,6 +169,8 @@ async function personelOlustur({ ad, email, password, rol, subeId }) {
       email,
       rol,
       subeId,
+      mesaiBaslangic: mesaiBaslangic || "",
+      mesaiBitis: mesaiBitis || "",
       aktif: true,
       olusturmaZamani: serverTimestamp(),
     });

@@ -46,6 +46,46 @@ export function tarihFormat(timestamp) {
   return d.toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" });
 }
 
+export function saatFormat(timestamp) {
+  if (!timestamp) return "-";
+  const d = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  return d.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+}
+
+// Yerel (cihaz saat dilimi) tarihini "YYYY-MM-DD" biçiminde döner — puantaj/
+// gün sonu kayıtları GÜN bazlı gruplanırken anahtar olarak kullanılır.
+export function tarihAnahtari(date = new Date()) {
+  const yil = date.getFullYear();
+  const ay = String(date.getMonth() + 1).padStart(2, "0");
+  const gun = String(date.getDate()).padStart(2, "0");
+  return `${yil}-${ay}-${gun}`;
+}
+
+// "bugun" | "hafta" | "ay" | "tumu" değerine göre aralığın başlangıç
+// tarihini (Date) döner — "tumu" için null. Raporlar/puantaj/muhasebe
+// ekranlarındaki tarih aralığı filtrelerinde ortak kullanılır.
+export function tarihAraligiBaslangici(aralik) {
+  const now = new Date();
+  if (aralik === "bugun") {
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+  if (aralik === "hafta") {
+    const gun = now.getDay() === 0 ? 7 : now.getDay(); // Pazartesi=1..Pazar=7
+    const pazartesi = new Date(now);
+    pazartesi.setDate(now.getDate() - (gun - 1));
+    return new Date(pazartesi.getFullYear(), pazartesi.getMonth(), pazartesi.getDate());
+  }
+  if (aralik === "ay") {
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+  return null; // tümü
+}
+
+export function tarihAnahtariniOku(anahtar) {
+  const [yil, ay, gun] = anahtar.split("-").map(Number);
+  return new Date(yil, ay - 1, gun).toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 export function escapeHtml(str) {
   if (str == null) return "";
   return String(str)

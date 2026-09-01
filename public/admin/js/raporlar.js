@@ -1,6 +1,6 @@
 import { db } from "../../shared/firebase-config.js";
 import { collection, onSnapshot, query } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { paraFormat, escapeHtml, snapshotHataYakala } from "../../shared/utils.js";
+import { paraFormat, escapeHtml, snapshotHataYakala, tarihAraligiBaslangici } from "../../shared/utils.js";
 import { subelerCache, subelerDegisti } from "./subeler.js";
 
 let siparislerCache = [];
@@ -29,26 +29,8 @@ function renderSubeSecim() {
   subeEl.value = secili;
 }
 
-function tarihSiniri() {
-  const now = new Date();
-  const aralik = aralikEl.value;
-  if (aralik === "bugun") {
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  }
-  if (aralik === "hafta") {
-    const gun = now.getDay() === 0 ? 7 : now.getDay(); // Pazartesi=1..Pazar=7
-    const pazartesi = new Date(now);
-    pazartesi.setDate(now.getDate() - (gun - 1));
-    return new Date(pazartesi.getFullYear(), pazartesi.getMonth(), pazartesi.getDate());
-  }
-  if (aralik === "ay") {
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  }
-  return null; // tümü
-}
-
 function render() {
-  const sinir = tarihSiniri();
+  const sinir = tarihAraligiBaslangici(aralikEl.value);
   const subeFiltre = subeEl.value;
 
   let liste = siparislerCache.filter((s) => s.durum !== undefined); // tüm kayıtlı siparişler
