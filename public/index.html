@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Restoran Yönetim Sistemi</title>
+<link rel="stylesheet" href="./shared/common.css" />
+<style>
+  body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #fff4ea, #f5f6f8); }
+  .sarma { max-width: 720px; width: 100%; padding: 24px; text-align: center; }
+  .logo { font-size: 52px; }
+  h1 { margin: 6px 0 30px; }
+  .kutu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
+  .kutu-grid a { text-decoration: none; }
+  .kutu {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 24px 12px; font-weight: 700; color: var(--renk-yazi);
+  }
+  .kutu span.ikon { font-size: 32px; }
+  .kutu:hover { transform: translateY(-3px); transition: .15s; }
+  .not { margin-top: 30px; font-size: 13px; color: var(--renk-yazi-soluk); }
+  code { background: #eef1f5; padding: 2px 6px; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <div class="sarma">
+    <div class="logo">🍽️</div>
+    <h1>QR Menü · Adisyon · Stok Takip Sistemi</h1>
+    <div class="kutu-grid">
+      <a href="/admin/"><div class="kutu kart"><span class="ikon">🛠️</span>Admin Paneli</div></a>
+      <a href="/garson/"><div class="kutu kart"><span class="ikon">🧑‍🍳</span>Garson Terminali</div></a>
+      <a href="/mutfak/"><div class="kutu kart"><span class="ikon">🍳</span>Mutfak Ekranı</div></a>
+      <a href="/adisyon/"><div class="kutu kart"><span class="ikon">🧾</span>Adisyon / Kasa</div></a>
+      <a href="/login/"><div class="kutu kart"><span class="ikon">🔐</span>Personel Girişi</div></a>
+    </div>
+    <p class="not">
+      Müşteri QR menüsü, masaya yapıştırılan QR koddan otomatik açılır:
+      <br /><code>/menu?masa=&lt;masaId&gt;</code> — masa QR kodlarını admin panelinden üretebilirsiniz.
+    </p>
+  </div>
+</body>
+</html>

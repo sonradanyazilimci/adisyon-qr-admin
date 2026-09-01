@@ -1,0 +1,37 @@
+{
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "cleanUrls": true,
+    "trailingSlash": false,
+    "rewrites": [
+      { "source": "/admin", "destination": "/admin/index.html" },
+      { "source": "/menu", "destination": "/menu/index.html" },
+      { "source": "/garson", "destination": "/garson/index.html" },
+      { "source": "/adisyon", "destination": "/adisyon/index.html" },
+      { "source": "/mutfak", "destination": "/mutfak/index.html" },
+      { "source": "/login", "destination": "/login/index.html" }
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(js)",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      }
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "emulators": {
+    "auth": { "port": 9099 },
+    "firestore": { "port": 8080 },
+    "hosting": { "port": 5000 },
+    "ui": { "enabled": true },
+    "singleProjectMode": true
+  }
+}

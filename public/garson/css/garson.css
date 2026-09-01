@@ -1,0 +1,43 @@
+body { background: #f7f7f9; padding-bottom: 90px; }
+
+.garson-header {
+  background: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,.05); position: sticky; top: 0; z-index: 40;
+}
+.garson-header h1 { font-size: 18px; margin: 0; }
+.garson-header p { font-size: 12px; color: var(--renk-yazi-soluk); margin: 2px 0 0; }
+
+.masa-secim-alani { padding: 16px 18px; }
+.masa-secim-alani h2 { font-size: 15px; margin: 0 0 10px; }
+.masalar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.masa-kart-mini {
+  background: #fff; border-radius: 12px; padding: 14px 8px; text-align: center; box-shadow: var(--golge);
+  font-weight: 800; font-size: 14px; border: 2px solid transparent; position: relative;
+}
+.masa-kart-mini .durum { font-size: 11px; font-weight: 700; margin-top: 4px; }
+.masa-kart-mini.dolu { border-color: #e67e22; }
+.masa-kart-mini.odeme_bekliyor { border-color: #c0392b; }
+.masa-kart-mini.cagirdi::after {
+  content: "🔔"; position: absolute; top: -8px; right: -6px; font-size: 18px;
+}
+.masa-kart-mini.yeni-siparis::before {
+  content: "🆕"; position: absolute; top: -8px; left: -6px; font-size: 16px;
+}
+
+.siparis-alani { padding: 8px 18px 20px; }
+.siparis-alani-baslik { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.siparis-alani-baslik h2 { font-size: 17px; margin: 0; }
+
+.menu-alt-baslik { font-size: 14px; margin: 18px 0 4px; color: var(--renk-yazi-soluk); }
+
+.mevcut-siparisler { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
+.mevcut-siparis-blok {
+  background: #fff; border-radius: 10px; padding: 10px 12px; box-shadow: var(--golge);
+  border-left: 4px solid var(--renk-ana);
+}
+.mevcut-siparis-blok .ust {
+  display: flex; justify-content: space-between; align-items: center; font-size: 12px;
+  color: var(--renk-yazi-soluk); margin-bottom: 6px;
+}
+.mevcut-siparis-blok .kalem { display: flex; justify-content: space-between; font-size: 13px; padding: 2px 0; }
+.mevcut-siparis-blok .kalem .not { color: var(--renk-yazi-soluk); font-size: 11px; }

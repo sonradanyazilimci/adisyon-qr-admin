@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin Paneli — Restoran Yönetim Sistemi</title>
+<link rel="stylesheet" href="../shared/common.css" />
+<link rel="stylesheet" href="./css/admin.css" />
+</head>
+<body>
+  <div id="uygulama" class="uygulama-gizli">
+    <aside class="kenar-cubugu">
+      <div class="logo-alan">🍽️ <span>Admin</span></div>
+      <nav>
+        <button class="nav-buton aktif" data-sekme="panel">📊 Panel</button>
+        <button class="nav-buton" data-sekme="subeler">🏬 Şubeler</button>
+        <button class="nav-buton" data-sekme="kategoriler">🗂️ Kategoriler</button>
+        <button class="nav-buton" data-sekme="urunler">🍔 Ürünler</button>
+        <button class="nav-buton" data-sekme="hammaddeler">📦 Hammaddeler / Stok</button>
+        <button class="nav-buton" data-sekme="masalar">🔗 Masalar / QR</button>
+        <button class="nav-buton" data-sekme="personel">👤 Personel</button>
+        <button class="nav-buton" data-sekme="raporlar">📈 Raporlar</button>
+        <button class="nav-buton" data-sekme="ayarlar">⚙️ Ayarlar</button>
+      </nav>
+      <div class="kenar-cubugu-alt">
+        <div id="kullanici-bilgisi">—</div>
+        <button id="cikis-buton" class="btn-ikincil btn-tam btn-kucuk">Çıkış Yap</button>
+      </div>
+    </aside>
+
+    <main class="icerik-alani">
+      <header class="ust-bar">
+        <h1 id="sekme-baslik">Panel</h1>
+      </header>
+
+      <section id="sekme-panel" class="sekme-icerik">
+        <div id="panel-kartlar" class="panel-kart-grid"></div>
+        <div id="panel-kritik-stok" class="kart"></div>
+      </section>
+
+      <section id="sekme-subeler" class="sekme-icerik" hidden>
+        <div class="sekme-eylemler"><button id="sube-ekle-buton" class="btn-birincil">+ Yeni Şube</button></div>
+        <div id="subeler-liste" class="liste-alani"></div>
+      </section>
+
+      <section id="sekme-kategoriler" class="sekme-icerik" hidden>
+        <div class="sekme-eylemler"><button id="kategori-ekle-buton" class="btn-birincil">+ Yeni Kategori</button></div>
+        <div id="kategoriler-liste" class="liste-alani"></div>
+      </section>
+
+      <section id="sekme-urunler" class="sekme-icerik" hidden>
+        <div class="sekme-eylemler">
+          <button id="urun-ekle-buton" class="btn-birincil">+ Yeni Ürün</button>
+          <input id="urun-arama" type="search" placeholder="Ürün ara..." style="max-width:220px;" />
+          <select id="urun-kategori-filtre" style="max-width:200px;"><option value="">Tüm Kategoriler</option></select>
+        </div>
+        <div id="urunler-liste" class="urun-liste-grid"></div>
+      </section>
+
+      <section id="sekme-hammaddeler" class="sekme-icerik" hidden>
+        <div class="sekme-eylemler"><button id="hammadde-ekle-buton" class="btn-birincil">+ Yeni Hammadde</button></div>
+        <div id="hammaddeler-liste" class="liste-alani"></div>
+      </section>
+
+      <section id="sekme-masalar" class="sekme-icerik" hidden>
+        <div class="sekme-eylemler">
+          <select id="masa-sube-filtre" style="max-width:220px;"></select>
+          <button id="masa-ekle-buton" class="btn-birincil">+ Yeni Masa</button>
+        </div>
+        <div id="masalar-liste" class="masa-kart-grid"></div>
+      </section>
+
+      <section id="sekme-personel" class="sekme-icerik" hidden>
+        <div class="sekme-eylemler"><button id="personel-ekle-buton" class="btn-birincil">+ Yeni Personel</button></div>
+        <div id="personel-liste" class="liste-alani"></div>
+      </section>
+
+      <section id="sekme-raporlar" class="sekme-icerik" hidden>
+        <div class="sekme-eylemler">
+          <select id="rapor-aralik">
+            <option value="bugun">Bugün</option>
+            <option value="hafta">Bu Hafta</option>
+            <option value="ay">Bu Ay</option>
+            <option value="tumu">Tümü</option>
+          </select>
+          <select id="rapor-sube"></select>
+        </div>
+        <div id="rapor-ozet" class="panel-kart-grid"></div>
+        <div id="rapor-en-cok-satan" class="kart"></div>
+      </section>
+
+      <section id="sekme-ayarlar" class="sekme-icerik" hidden>
+        <div class="kart">
+          <h3>Test / Demo Verisi</h3>
+          <p style="color:var(--renk-yazi-soluk);font-size:13px;">Sistemi hızlıca denemek için örnek şube, kategori, ürün, hammadde ve masa verisi yükler.</p>
+          <button id="demo-veri-buton" class="btn-ikincil">Demo Veri Yükle</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="yukleniyor-ekrani" class="yukleniyor" style="min-height:100vh;">Yükleniyor...</div>
+
+  <script type="module" src="./js/admin.js"></script>
+</body>
+</html>

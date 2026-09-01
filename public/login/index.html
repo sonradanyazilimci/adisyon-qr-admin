@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Giriş — Restoran Yönetim Sistemi</title>
+<link rel="stylesheet" href="../shared/common.css" />
+<style>
+  body { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #fff4ea, #f5f6f8); }
+  .giris-kutu { width: 100%; max-width: 380px; }
+  .logo { text-align: center; font-size: 40px; margin-bottom: 6px; }
+  h1 { text-align: center; font-size: 20px; margin: 0 0 4px; }
+  p.alt { text-align: center; color: var(--renk-yazi-soluk); font-size: 13px; margin-top: 0; margin-bottom: 22px; }
+  .sekme-degistir { text-align: center; margin-top: 16px; font-size: 13px; }
+  .sekme-degistir a { color: var(--renk-ana); font-weight: 600; text-decoration: none; cursor: pointer; }
+  .hata-mesaji { background: #fdecea; color: var(--renk-kirmizi); padding: 10px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; display: none; }
+  .basari-mesaji { background: #eafaf1; color: var(--renk-yesil); padding: 10px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; display: none; }
+  #kurulum-formu { display: none; }
+  .roller-bilgi { font-size: 12px; color: var(--renk-yazi-soluk); text-align: center; margin-top: 18px; line-height: 1.6; }
+</style>
+</head>
+<body>
+  <div class="giris-kutu kart">
+    <div class="logo">🍽️</div>
+    <h1>Restoran Yönetim Sistemi</h1>
+    <p class="alt">Admin · Garson · Kasa girişi</p>
+
+    <div class="hata-mesaji" id="hata-mesaji"></div>
+    <div class="basari-mesaji" id="basari-mesaji"></div>
+
+    <form id="giris-formu">
+      <div class="form-alan">
+        <label for="giris-email">E-posta</label>
+        <input id="giris-email" type="email" required autocomplete="username" />
+      </div>
+      <div class="form-alan">
+        <label for="giris-sifre">Şifre</label>
+        <input id="giris-sifre" type="password" required autocomplete="current-password" />
+      </div>
+      <button type="submit" class="btn-birincil btn-tam" id="giris-buton">Giriş Yap</button>
+    </form>
+
+    <form id="kurulum-formu">
+      <div class="form-alan">
+        <label for="kurulum-ad">Ad Soyad</label>
+        <input id="kurulum-ad" type="text" required />
+      </div>
+      <div class="form-alan">
+        <label for="kurulum-email">E-posta</label>
+        <input id="kurulum-email" type="email" required />
+      </div>
+      <div class="form-alan">
+        <label for="kurulum-sifre">Şifre (en az 6 karakter)</label>
+        <input id="kurulum-sifre" type="password" minlength="6" required />
+      </div>
+      <button type="submit" class="btn-birincil btn-tam" id="kurulum-buton">İlk Admin Hesabını Oluştur</button>
+    </form>
+
+    <div class="sekme-degistir">
+      <a id="kurulum-linki">İlk kurulumu mu yapıyorsunuz? Admin hesabı oluşturun →</a>
+      <a id="giris-linki" style="display:none;">← Giriş ekranına dön</a>
+    </div>
+
+    <div class="roller-bilgi">
+      QR menüye masanızdaki kodu okutarak, garson/kasa girişini yöneticinizden aldığınız
+      hesap bilgileriyle yapabilirsiniz.
+    </div>
+  </div>
+
+  <script type="module" src="./login.js"></script>
+</body>
+</html>

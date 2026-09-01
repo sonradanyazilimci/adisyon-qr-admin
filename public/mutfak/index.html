@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mutfak Ekranı</title>
+<link rel="stylesheet" href="../shared/common.css" />
+<link rel="stylesheet" href="./css/mutfak.css" />
+</head>
+<body>
+  <div id="yukleniyor-ekrani" class="yukleniyor" style="min-height:100vh;">Yükleniyor...</div>
+
+  <div id="sayfa" hidden>
+    <header class="mutfak-header">
+      <div>
+        <h1 id="mutfak-baslik">🍳 Mutfak Ekranı</h1>
+        <p id="mutfak-alt-baslik">Şube</p>
+      </div>
+      <button id="cikis-buton" class="btn-ikincil btn-kucuk">Çıkış</button>
+    </header>
+
+    <main class="mutfak-govde">
+      <section class="mutfak-sutun">
+        <h2>🆕 Yeni Siparişler <span id="yeni-sayisi" class="sayac"></span></h2>
+        <div id="yeni-liste" class="siparis-kart-liste"></div>
+      </section>
+      <section class="mutfak-sutun">
+        <h2>🔥 Hazırlanıyor <span id="hazirlaniyor-sayisi" class="sayac"></span></h2>
+        <div id="hazirlaniyor-liste" class="siparis-kart-liste"></div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="./js/mutfak.js"></script>
+</body>
+</html>

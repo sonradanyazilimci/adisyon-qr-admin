@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Adisyon / Kasa</title>
+<link rel="stylesheet" href="../shared/common.css" />
+<link rel="stylesheet" href="./css/adisyon.css" />
+</head>
+<body>
+  <div id="yukleniyor-ekrani" class="yukleniyor" style="min-height:100vh;">Yükleniyor...</div>
+
+  <div id="sayfa" hidden class="sayfa-duzen">
+    <header class="adisyon-header yazdirma-gizle">
+      <div>
+        <h1 id="kasa-baslik">Adisyon / Kasa</h1>
+        <p id="kasa-alt-baslik">Şube</p>
+      </div>
+      <button id="cikis-buton" class="btn-ikincil btn-kucuk">Çıkış</button>
+    </header>
+
+    <main class="adisyon-govde yazdirma-gizle">
+      <section class="masalar-panel">
+        <h2>Masalar</h2>
+        <div id="masalar-grid" class="masalar-grid"></div>
+      </section>
+
+      <section id="detay-panel" class="detay-panel">
+        <div class="bos-durum">Detaylarını görmek için bir masa seçin.</div>
+      </section>
+    </main>
+  </div>
+
+  <div id="fis-yazdirma" class="yazdirilacak" style="display:none;"></div>
+
+  <script type="module" src="./js/adisyon.js"></script>
+</body>
+</html>

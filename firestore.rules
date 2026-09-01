@@ -1,0 +1,180 @@
+rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────────────────
+// QR Menü + Adisyon + Stok Takip — Firestore Güvenlik Kuralları
+// (BLAZE PLANI OLMADAN / CLOUD FUNCTIONS KULLANILMADAN çalışacak şekilde)
+//
+// Cloud Functions (Admin SDK) kullanılmadığı için roller custom claim yerine
+// doğrudan `kullanicilar/{uid}` belgesindeki `rol` alanından okunur (Firestore
+// güvenlik kurallarında `get()` ile). Bu, aynı seviyede güvenlidir çünkü
+// `kullanicilar` koleksiyonuna client YAZAMAZ (aşağıda dar kapsamlı 2 istisna
+// dışında) — sadece admin başka kullanıcıların rolünü değiştirebilir.
+//
+//   admin  → her şeyi okur/yazar
+//   garson → menüyü okur, sipariş oluşturur, sipariş durumunu günceller
+//   kasa   → sipariş/adisyonları okur-yazar, hesap kapatır
+//   mutfak → siparişleri okur, hazırlanıyor/hazır durumunu günceller
+//   (kimliksiz / müşteri) → aktif menüyü okur; QR üzerinden doğrudan
+//            Firestore'a (dar kapsamlı, aşağıda satır satır açıklanan
+//            kurallarla sınırlı) sipariş oluşturabilir / garson çağırabilir
+//
+// NOT (bilinen sınır): Cloud Functions olmadığı için sipariş oluşturma ve
+// stok düşümü artık CLIENT'TAN çalışan bir Firestore transaction ile yapılır
+// (bkz. public/shared/siparis.js). Aynı anda gelen siparişlerde stok
+// tutarsızlığı olmaması (atomiklik) yine garanti edilir, ama sunucu tarafı
+// doğrulama olmadığı için kötü niyetli/teknik bir kullanıcı istek gövdesini
+// (fiyat/adet gibi) değiştirebilir. Bu, Blaze planına geçilip Cloud
+// Functions (functions/index.js içinde hazır bekliyor) yeniden devreye
+// alınana kadar kabul edilen bir risktir.
+// ─────────────────────────────────────────────────────────────────────────
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // NOT: Bu yardımcı fonksiyonlar `database` path değişkenini kullandığı
+    // için mutlaka bu match /databases/{database}/documents bloğunun İÇİNDE
+    // tanımlanmalı (dışında tanımlanırsa `database` scope dışı kalır).
+
+    function girisYapmis() {
+      return request.auth != null;
+    }
+
+    function kullaniciBelgesi() {
+      return get(/databases/$(database)/documents/kullanicilar/$(request.auth.uid)).data;
+    }
+
+    function rol(r) {
+      return girisYapmis()
+        && exists(/databases/$(database)/documents/kullanicilar/$(request.auth.uid))
+        && kullaniciBelgesi().rol == r
+        && kullaniciBelgesi().aktif != false;
+    }
+
+    function personel() {
+      return rol('admin') || rol('garson') || rol('kasa') || rol('mutfak');
+    }
+
+    function ilkKurulumYapildi() {
+      return exists(/databases/$(database)/documents/ayarlar/ilkAdmin);
+    }
+
+    // Bir güncellemenin SADECE belirtilen alanlara dokunduğunu kontrol eder.
+    function sadeceAlanlar(alanlar) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(alanlar);
+    }
+
+    // İlk kurulum işaretçisi — tek kullanımlık. Herkes okuyabilir (bootstrap
+    // ekranı kontrol eder), sadece bir kez oluşturulabilir (create sadece
+    // belge yokken tetiklenir), asla güncellenip silinemez.
+    match /ayarlar/ilkAdmin {
+      allow read: if true;
+      allow create: if girisYapmis();
+      allow update, delete: if false;
+    }
+
+    // Kullanıcı profilleri (rol burada tutulur).
+    match /kullanicilar/{uid} {
+      allow read: if girisYapmis() && (request.auth.uid == uid || rol('admin'));
+      // İlk kurulum: sistemde hiç admin yokken, giriş yapmış kullanıcı
+      // SADECE kendi profilini "admin" olarak oluşturabilir (tek seferlik).
+      allow create: if girisYapmis() && request.auth.uid == uid
+                      && request.resource.data.rol == 'admin'
+                      && !ilkKurulumYapildi();
+      // Admin, yeni personel (garson/kasa/admin) profili oluşturabilir.
+      allow create: if rol('admin');
+      // Sadece admin rol/şube/aktiflik günceller veya personel siler.
+      allow update, delete: if rol('admin');
+    }
+
+    // Şubeler — zincirin tüm şubeleri. Herkes okuyabilir (QR menü başlığı
+    // ve şube seçimi için), sadece admin yazar. Menü/hammadde tüm şubelerde
+    // ortaktır (tek merkezi kaynak); masa/sipariş/adisyon şube bazlı ayrılır.
+    match /subeler/{id} {
+      allow read: if true;
+      allow write: if rol('admin');
+    }
+
+    // Kategoriler — herkes okuyabilir (QR menü dahil), sadece admin yazar
+    match /kategoriler/{id} {
+      allow read: if true;
+      allow write: if rol('admin');
+    }
+
+    // Ürünler — herkes okuyabilir, sadece admin yazar
+    match /urunler/{id} {
+      allow read: if true;
+      allow write: if rol('admin');
+    }
+
+    // Hammaddeler / stok. Sipariş sırasında STOK DÜŞÜMÜ artık client
+    // transaction ile yapıldığından, sipariş veren taraf (kimliksiz müşteri
+    // dahil) o transaction içinde hammadde belgesini OKUYABİLMELİDİR —
+    // bu yüzden tekil belge okuma (`get`) herkese açıktır, ama TÜM stok
+    // listesini sorgulamak (`list`) sadece personele açıktır (stok
+    // envanterinin dışarıdan taranmasını engeller). Yazmada da HERKESE dar
+    // kapsamlı bir "sadece azalt" izni verilir: yalnızca mevcutStok alanı
+    // değişebilir, asla negatife veya eski değerinden BÜYÜK bir değere
+    // çekilemez (stok artırılamaz; artırma/manuel düzeltme sadece admin'e
+    // açıktır).
+    match /hammaddeler/{id} {
+      allow get: if true;
+      allow list: if personel();
+      allow write: if rol('admin');
+      allow update: if sadeceAlanlar(['mevcutStok', 'guncellemeZamani'])
+                      && request.resource.data.mevcutStok >= 0
+                      && request.resource.data.mevcutStok <= resource.data.mevcutStok;
+    }
+
+    // Stok hareketleri geçmişi (append-only log). Personel serbestçe not
+    // düşebilir; kimliksiz müşteri sadece "siparis" sebepli otomatik
+    // düşüm kaydı oluşturabilir. Güncelleme/silme sadece admin.
+    match /stokHareketleri/{id} {
+      allow read: if personel();
+      allow create: if personel() || request.resource.data.sebep == 'siparis';
+      allow update, delete: if rol('admin');
+    }
+
+    // Masalar — herkes okuyabilir (QR ile masa doğrulama). Admin masa
+    // ekler/siler. Personel masa üzerinde her şeyi güncelleyebilir.
+    // Kimliksiz müşteriye SADECE iki dar kapsamlı işlem izinlidir:
+    //   1) garson çağırma bayrağını true yapmak
+    //   2) sipariş verince masayı "dolu" yapmak
+    match /masalar/{id} {
+      allow read: if true;
+      allow create, delete: if rol('admin');
+      allow update: if personel()
+        || (sadeceAlanlar(['garsonCagirildi', 'garsonCagriZamani']) && request.resource.data.garsonCagirildi == true)
+        || (sadeceAlanlar(['durum']) && request.resource.data.durum == 'dolu');
+    }
+
+    // Siparişler — personel her zaman oluşturabilir/günceller. Kimliksiz
+    // müşteri de QR menüden sipariş oluşturabilir; temel yapı kontrolleri
+    // (var olan bir masaya, pozitif tutarla, "yeni" durumda) uygulanır.
+    match /siparisler/{id} {
+      allow read: if personel();
+      allow create: if personel() || (
+        request.resource.data.masaId is string
+        && exists(/databases/$(database)/documents/masalar/$(request.resource.data.masaId))
+        && request.resource.data.durum == 'yeni'
+        && request.resource.data.urunler is list
+        && request.resource.data.urunler.size() > 0
+        && request.resource.data.toplamTutar is number
+        && request.resource.data.toplamTutar >= 0
+      );
+      allow update: if personel();
+      allow delete: if rol('admin');
+    }
+
+    // Adisyonlar — kasa/admin okur-yazar, garson sadece okur
+    match /adisyonlar/{id} {
+      allow read: if personel();
+      allow write: if rol('admin') || rol('kasa');
+    }
+
+    // Ayarlar (restoran adı, logo vb.) — herkes okur, admin yazar
+    match /ayarlar/{id} {
+      allow read: if true;
+      allow write: if rol('admin');
+    }
+  }
+}

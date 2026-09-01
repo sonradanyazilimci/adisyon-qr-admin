@@ -1,0 +1,29 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "siparisler",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "masaId", "order": "ASCENDING" },
+        { "fieldPath": "olusturmaZamani", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "siparisler",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "durum", "order": "ASCENDING" },
+        { "fieldPath": "olusturmaZamani", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "adisyonlar",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "durum", "order": "ASCENDING" },
+        { "fieldPath": "kapanmaZamani", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

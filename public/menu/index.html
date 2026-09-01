@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Dijital Menü</title>
+<link rel="stylesheet" href="../shared/common.css" />
+<link rel="stylesheet" href="./css/menu.css" />
+</head>
+<body>
+  <div id="durum-mesaji" class="yukleniyor" style="min-height:100vh;">Menü yükleniyor...</div>
+
+  <div id="sayfa" hidden>
+    <header class="menu-header">
+      <div class="menu-header-ust">
+        <img id="restoran-logo" class="restoran-logo" src="" alt="Logo" hidden />
+        <div class="restoran-bilgi">
+          <h1 id="restoran-adi">Restoran</h1>
+          <p id="sube-bilgi">Şube</p>
+        </div>
+        <div class="masa-etiketi" id="masa-etiketi">Masa</div>
+      </div>
+      <div class="arama-alani">
+        <input id="arama-input" type="search" placeholder="Menüde ara..." />
+      </div>
+      <nav id="kategori-seritler" class="kategori-seritler"></nav>
+    </header>
+
+    <main id="urun-listesi" class="urun-listesi"></main>
+
+    <button id="garson-cagir-buton" class="yuzen-buton yuzen-cag" title="Garson Çağır">🔔</button>
+
+    <button id="sepet-bar" class="sepet-bar" hidden>
+      <span id="sepet-bar-adet">0 ürün</span>
+      <span id="sepet-bar-tutar">0,00 ₺</span>
+      <span class="sepet-bar-ok">Sepeti Gör →</span>
+    </button>
+  </div>
+
+  <script type="module" src="./js/menu.js"></script>
+</body>
+</html>
