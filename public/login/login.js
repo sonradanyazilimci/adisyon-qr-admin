@@ -60,7 +60,7 @@ girisFormu.addEventListener("submit", async (e) => {
       buton.disabled = false;
       return;
     }
-    window.location.href = donusAdresi() || ROL_ANASAYFA[rol] || "/login/";
+    window.location.href = donusAdresi() || ROL_ANASAYFA[rol] || "./";
   } catch (err) {
     console.error(err);
     hataGoster("Giriş başarısız: e-posta veya şifre hatalı.");
@@ -101,7 +101,7 @@ kurulumFormu.addEventListener("submit", async (e) => {
     await batch.commit();
 
     basariGoster("Admin hesabı oluşturuldu! Admin paneline yönlendiriliyorsunuz...");
-    setTimeout(() => (window.location.href = "/admin/"), 1200);
+    setTimeout(() => (window.location.href = "../admin/"), 1200);
   } catch (err) {
     console.error(err);
     if (err.code === "auth/email-already-in-use") {

@@ -63,6 +63,27 @@ Yerelde denemek isterseniz: `firebase emulators:start`, ve tarayıcı konsolunda
 `localStorage.setItem('kullanEmulator','1')` çalıştırıp sayfayı yenileyin
 (`public/shared/firebase-config.js` bunu otomatik algılar).
 
+### Alternatif: GitHub Pages ile yayınlama
+
+Firebase Hosting yerine (veya onunla birlikte) statik dosyaları **GitHub Pages** üzerinden de
+yayınlayabilirsiniz — backend (Firestore/Auth) aynı Firebase projesi olduğu için ikisi de
+aynı veriyle çalışır, sadece HTML/CSS/JS dosyalarının servis edildiği adres değişir.
+
+1. Bu depoda hazır bekleyen `.github/workflows/deploy-pages.yml` dosyası `public/` klasörünü
+   otomatik yayınlar. Depoyu push ettikten sonra: GitHub reponuzda **Settings → Pages →
+   Build and deployment → Source** kısmından **"GitHub Actions"**'ı seçin (varsayılan
+   "Deploy from a branch" seçeneğini DEĞİL — o seçiliyse site sadece README'yi gösterir).
+2. Her `main` dalına push'ta site otomatik güncellenir; adresiniz
+   `https://<kullaniciadiniz>.github.io/<repo-adi>/` şeklinde olur.
+3. **Önemli:** Bu adresi Firebase Console → **Authentication → Settings → Authorized
+   domains** kısmına ekleyin (ör. `kullaniciadiniz.github.io`), yoksa personel girişi
+   (`/login`) "unauthorized-domain" hatası verir. (QR menüyü anonim gezen müşteriler için bu
+   adım gerekmez, sadece giriş yapan admin/garson/kasa/mutfak hesapları için gerekir.)
+4. Kod, sitenin bir alan adı kökünde mi (Firebase Hosting) yoksa bir alt yolda mı (GitHub
+   Pages'in `<kullaniciadiniz>.github.io/<repo-adi>/` yapısı) yayınlandığını otomatik anlayacak
+   şekilde göreceli linkler (`../admin/` gibi) kullanır — bu yüzden her iki platformda da
+   ek bir ayar yapmadan doğru çalışır.
+
 ## 3) İlk Admin Hesabını Oluşturma
 
 Deploy sonrası `https://<projeniz>.web.app/login` (veya yerel test URL'niz) adresine gidin,

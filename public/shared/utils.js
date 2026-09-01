@@ -109,13 +109,18 @@ export function alerjenRozetleriHtml(alerjenler = [], glutensiz = false) {
 }
 
 // Bir masa için QR kod görselinin URL'sini üretir (harici, ücretsiz QR API).
-// Üretilen QR, `<origin>/menu?sube=<subeId>&masa=<masaId>` adresine yönlendirir
-// — çok şubeli yapıda her şubenin masa linkleri kendi şube kimliğini taşır.
+// Üretilen QR, sitenin köküne göre `.../menu?sube=<subeId>&masa=<masaId>`
+// adresine yönlendirir — çok şubeli yapıda her şubenin masa linkleri kendi
+// şube kimliğini taşır. Bu fonksiyon admin panelinden (her zaman
+// "<kök>/admin/..." derinliğinden) çağrıldığı için "../menu" göreceli
+// referansı, site ister bir alan adının kökünde (Firebase Hosting) ister
+// bir alt yolda (ör. GitHub Pages'te kullaniciadi.github.io/repo-adi/)
+// yayınlansın doğru mutlak URL'yi üretir.
 export function masaQrUrl(masaId, subeId = "", boyut = 300) {
   const parametreler = new URLSearchParams();
   if (subeId) parametreler.set("sube", subeId);
   parametreler.set("masa", masaId);
-  const hedefUrl = `${window.location.origin}/menu?${parametreler.toString()}`;
+  const hedefUrl = new URL(`../menu?${parametreler.toString()}`, window.location.href).href;
   return {
     hedefUrl,
     qrGorselUrl: `https://api.qrserver.com/v1/create-qr-code/?size=${boyut}x${boyut}&data=${encodeURIComponent(

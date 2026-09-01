@@ -1,0 +1,46 @@
+name: GitHub Pages'e Deploy Et
+
+# public/ klasörünü GitHub Pages'e yayınlar. Bu, Firebase Hosting'den BAĞIMSIZ
+# ikinci bir yayınlama yoludur — Firestore/Auth backend'i (adisyon-admin-qr
+# Firebase projesi) her iki durumda da aynıdır, sadece statik dosyaların
+# nereden servis edildiği değişir.
+#
+# BİR KEZLİK KURULUM (bu dosya push edildikten sonra):
+#   GitHub repo → Settings → Pages → "Build and deployment" → Source:
+#   "GitHub Actions" seçin (varsayılan "Deploy from a branch" seçeneğini DEĞİL).
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodu çek
+        uses: actions/checkout@v4
+
+      - name: GitHub Pages'i yapılandır
+        uses: actions/configure-pages@v5
+
+      - name: public/ klasörünü yükle
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "./public"
+
+      - name: Deploy et
+        id: deployment
+        uses: actions/deploy-pages@v4
