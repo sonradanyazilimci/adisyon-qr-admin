@@ -27,7 +27,14 @@
 
     <main class="adisyon-govde yazdirma-gizle">
       <section class="masalar-panel">
-        <h2>Masalar</h2>
+        <div class="masalar-panel-baslik">
+          <h2>Masalar</h2>
+          <button id="garson-atama-goster-buton" class="btn-ikincil btn-kucuk">👥 Garson Ata</button>
+        </div>
+        <div id="garson-atama-paneli" class="garson-atama-paneli" hidden>
+          <p class="garson-atama-aciklama">Bir garson seçin, sonra atamak istediğiniz masalara art arda dokunun.</p>
+          <div id="garson-atama-cipler" class="garson-atama-cipler"></div>
+        </div>
         <div id="eylem-modu-banner" class="eylem-modu-banner" hidden></div>
         <div id="masalar-grid" class="masalar-grid"></div>
       </section>

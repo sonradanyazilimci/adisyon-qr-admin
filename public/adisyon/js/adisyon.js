@@ -16,6 +16,7 @@ let masalarCache = [];
 let siparislerCache = [];
 let kategorilerCache = [];
 let urunlerCache = [];
+let garsonlarCache = [];
 let seciliMasaId = null;
 let seciliOdemeYontemi = "nakit";
 let menuAcik = false;
@@ -27,6 +28,12 @@ let sepet = [];
 // ayrı bir liste/modal açmaya gerek kalmaz.
 // { tur: 'tasi', kaynakMasaId } | { tur: 'birlestir', hedefMasaId } | null
 let eylemModu = null;
+// Garson atama modu: bir garson (veya "kaldır") seçilince AÇIK KALIR — kasa
+// art arda birçok masaya dokunarak hızlıca atama yapabilsin diye tek
+// dokunuşta kapanmaz (masa taşımadan farklı olarak).
+// { garsonId, garsonAdi } | 'kaldir' | null
+let garsonAtamaModu = null;
+let garsonAtamaPaneliAcik = false;
 
 function sepetAnahtari() { return `sepet_kasa_${seciliMasaId}`; }
 function sepetOku() { try { return JSON.parse(localStorage.getItem(sepetAnahtari())) || []; } catch { return []; } }
@@ -76,6 +83,49 @@ async function baslat() {
     urunlerCache = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => u.aktif !== false);
     if (seciliMasaId && menuAcik) renderDetay();
   });
+
+  onSnapshot(query(collection(db, "kullanicilar")), (snap) => {
+    garsonlarCache = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((p) => p.rol === "garson" && p.aktif !== false && (!kullanici.subeId || p.subeId === kullanici.subeId));
+    if (garsonAtamaPaneliAcik) renderGarsonAtamaPaneli();
+  });
+
+  document.getElementById("garson-atama-goster-buton").addEventListener("click", () => {
+    garsonAtamaPaneliAcik = !garsonAtamaPaneliAcik;
+    if (!garsonAtamaPaneliAcik) { garsonAtamaModu = null; renderMasalar(); }
+    document.getElementById("garson-atama-paneli").hidden = !garsonAtamaPaneliAcik;
+    document.getElementById("garson-atama-goster-buton").textContent = garsonAtamaPaneliAcik ? "✕ Kapat" : "👥 Garson Ata";
+    if (garsonAtamaPaneliAcik) renderGarsonAtamaPaneli();
+  });
+}
+
+function renderGarsonAtamaPaneli() {
+  const el = document.getElementById("garson-atama-cipler");
+  if (garsonlarCache.length === 0) {
+    el.innerHTML = `<div class="bos-durum" style="padding:10px;">Şubenize tanımlı garson bulunamadı.</div>`;
+    return;
+  }
+  const aktifGarsonId = garsonAtamaModu && garsonAtamaModu !== "kaldir" ? garsonAtamaModu.garsonId : null;
+  el.innerHTML = garsonlarCache.map((g) => `
+    <div class="garson-atama-cip ${aktifGarsonId === g.id ? "aktif" : ""}" data-garson="${g.id}">${escapeHtml(g.ad)}</div>
+  `).join("") + `
+    <div class="garson-atama-cip garson-atama-kaldir ${garsonAtamaModu === "kaldir" ? "aktif" : ""}" data-kaldir="1">🚫 Atamayı Kaldır</div>
+  `;
+
+  el.querySelectorAll("[data-garson]").forEach((cip) => cip.addEventListener("click", () => {
+    const g = garsonlarCache.find((x) => x.id === cip.dataset.garson);
+    garsonAtamaModu = (garsonAtamaModu && garsonAtamaModu !== "kaldir" && garsonAtamaModu.garsonId === g.id)
+      ? null
+      : { garsonId: g.id, garsonAdi: g.ad };
+    renderGarsonAtamaPaneli();
+    renderMasalar();
+  }));
+  el.querySelector("[data-kaldir]").addEventListener("click", () => {
+    garsonAtamaModu = garsonAtamaModu === "kaldir" ? null : "kaldir";
+    renderGarsonAtamaPaneli();
+    renderMasalar();
+  });
 }
 
 function masaninAcikSiparisleri(masaId) {
@@ -114,10 +164,12 @@ function renderMasalar() {
     const onayBekliyorVar = acikSiparisler.some((s) => s.durum === "onay_bekliyor");
     const eylemModunda = !!eylemModu;
     const buMasaEylemKaynagi = m.id === eylemKaynakId;
+    const buMasaGarsonAyni = garsonAtamaModu && garsonAtamaModu !== "kaldir" && m.sorumluGarsonId === garsonAtamaModu.garsonId;
     return `
-    <div class="masa-kart-adisyon ${m.durum || "bos"} ${m.id === seciliMasaId ? "secili" : ""} ${m.garsonCagirildi ? "cagirdi" : ""} ${yeniSiparisVar ? "yeni-siparis" : ""} ${onayBekliyorVar ? "onay-bekliyor-var" : ""} ${eylemModunda ? "eylem-modu-aktif" : ""} ${buMasaEylemKaynagi ? "eylem-kaynagi" : ""}" data-masa="${m.id}">
+    <div class="masa-kart-adisyon ${m.durum || "bos"} ${m.id === seciliMasaId ? "secili" : ""} ${m.garsonCagirildi ? "cagirdi" : ""} ${yeniSiparisVar ? "yeni-siparis" : ""} ${onayBekliyorVar ? "onay-bekliyor-var" : ""} ${eylemModunda ? "eylem-modu-aktif" : ""} ${buMasaEylemKaynagi ? "eylem-kaynagi" : ""} ${garsonAtamaModu ? "atama-modu-aktif" : ""} ${buMasaGarsonAyni ? "atama-ayni-garson" : ""}" data-masa="${m.id}">
       ${escapeHtml(m.ad)}
       <div class="durum" style="color:${(MASA_DURUMLARI[m.durum] || MASA_DURUMLARI.bos).renk}">${(MASA_DURUMLARI[m.durum] || MASA_DURUMLARI.bos).etiket}</div>
+      <div class="sorumlu-etiket">${m.sorumluGarsonAdi ? `👤 ${escapeHtml(m.sorumluGarsonAdi)}` : "Sorumlu yok"}</div>
       ${onayBekliyorVar ? `<div class="tutar" style="color:#9b59b6;">⏳ Onay Bekliyor</div>` : toplam > 0 ? `<div class="tutar">${paraFormat(toplam)}</div>` : ""}
     </div>`;
   }).join("");
@@ -126,6 +178,24 @@ function renderMasalar() {
 }
 
 async function masaKartiTiklandi(tiklananId) {
+  if (garsonAtamaModu) {
+    const masa = masalarCache.find((m) => m.id === tiklananId);
+    try {
+      if (garsonAtamaModu === "kaldir") {
+        await updateDoc(doc(db, "masalar", tiklananId), { sorumluGarsonId: null, sorumluGarsonAdi: null });
+        bildirimGoster(`${masa?.ad || ""}: sorumlu ataması kaldırıldı.`, "basari");
+      } else {
+        await updateDoc(doc(db, "masalar", tiklananId), {
+          sorumluGarsonId: garsonAtamaModu.garsonId,
+          sorumluGarsonAdi: garsonAtamaModu.garsonAdi,
+        });
+        bildirimGoster(`${masa?.ad || ""} → ${garsonAtamaModu.garsonAdi}`, "basari");
+      }
+    } catch (err) {
+      bildirimGoster("Hata: " + err.message, "hata");
+    }
+    return; // mod açık kalır — kasa art arda başka masalara da atayabilsin
+  }
   if (eylemModu) {
     if (eylemModu.tur === "tasi") {
       if (tiklananId === eylemModu.kaynakMasaId) { eylemModu = null; renderMasalar(); return; }

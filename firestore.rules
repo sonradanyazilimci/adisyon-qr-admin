@@ -74,7 +74,10 @@ service cloud.firestore {
 
     // Kullanıcı profilleri (rol burada tutulur).
     match /kullanicilar/{uid} {
-      allow read: if girisYapmis() && (request.auth.uid == uid || rol('admin'));
+      // Kendi profilini herkes okur; personel (admin/garson/kasa/mutfak) diğer
+      // personeli de okuyabilir — ör. kasa ekranı masalara garson atarken
+      // garson listesini görebilmeli.
+      allow read: if girisYapmis() && (request.auth.uid == uid || personel());
       // İlk kurulum: sistemde hiç admin yokken, giriş yapmış kullanıcı
       // SADECE kendi profilini "admin" olarak oluşturabilir (tek seferlik).
       allow create: if girisYapmis() && request.auth.uid == uid

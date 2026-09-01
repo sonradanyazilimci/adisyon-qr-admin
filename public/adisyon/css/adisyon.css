@@ -10,7 +10,30 @@ body { background: var(--renk-arkaplan); }
 
 .adisyon-govde { display: flex; gap: 20px; padding: 20px 22px 40px; align-items: flex-start; flex-wrap: wrap; }
 .masalar-panel { flex: 1; min-width: 300px; }
-.masalar-panel h2 { font-size: 15px; margin: 0 0 12px; }
+.masalar-panel h2 { font-size: 15px; margin: 0; }
+.masalar-panel-baslik { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
+
+.garson-atama-paneli {
+  background: var(--renk-kart); border: 1.5px dashed #9b59b6; border-radius: 12px;
+  padding: 12px; margin-bottom: 14px;
+}
+.garson-atama-aciklama { font-size: 12.5px; color: var(--renk-yazi-soluk); margin: 0 0 10px; }
+.garson-atama-cipler { display: flex; flex-wrap: wrap; gap: 8px; }
+.garson-atama-cip {
+  padding: 10px 16px; border-radius: 999px; background: var(--renk-ikincil-bg); font-weight: 700;
+  font-size: 13px; cursor: pointer; border: 2px solid transparent; user-select: none;
+}
+.garson-atama-cip.aktif { background: #9b59b6; color: #fff; border-color: #9b59b6; }
+.garson-atama-cip.garson-atama-kaldir { background: transparent; border-color: var(--renk-kirmizi); color: var(--renk-kirmizi); }
+.garson-atama-cip.garson-atama-kaldir.aktif { background: var(--renk-kirmizi); color: #fff; }
+
+.sorumlu-etiket { font-size: 10px; color: var(--renk-yazi-soluk); margin-top: 3px; font-weight: 600; }
+.masa-kart-adisyon.atama-modu-aktif { animation: eylemNabizMor 1.1s ease-in-out infinite; }
+.masa-kart-adisyon.atama-ayni-garson { border-color: #9b59b6; }
+@keyframes eylemNabizMor {
+  0%, 100% { box-shadow: var(--golge); }
+  50% { box-shadow: 0 0 0 4px rgba(155,89,182,.35); }
+}
 .masalar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
 .masa-kart-adisyon {
   background: var(--renk-kart); border-radius: 14px; padding: 18px 8px; min-height: 84px;
