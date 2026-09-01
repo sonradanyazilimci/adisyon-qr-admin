@@ -39,13 +39,16 @@ let garsonAtamaPaneliAcik = false;
 
 // Personel puantajı / ön muhasebe / gün sonu için durum
 let subePersoneliCache = [];
-let puantajBugunCache = [];
+let puantajTumKayitlarCache = []; // şubenin TÜM puantaj kayıtları (tarihe göre burada filtrelenmez, renderPuantajPaneli seçili tarihe göre filtreler)
 let kasaHareketleriBugunCache = [];
 let adisyonlarBugunCache = [];
 let subeDokumani = null;
 let gunSonuBugunKaydi = null;
-let puantajPaneliAcik = false;
-let kasaHareketPaneliAcik = false;
+// Ana içerik artık sekmeli: 'masalar' | 'puantaj' | 'kasahareket'
+let aktifSekme = "masalar";
+// Puantaj sekmesinde görüntülenen tarih — varsayılan bugün, ama geçmiş
+// günlerin kaydını görüntülemek/manuel düzeltmek için değiştirilebilir.
+let puantajSeciliTarih = tarihAnahtari();
 
 function sepetAnahtari() { return `sepet_kasa_${seciliMasaId}`; }
 function sepetOku() { try { return JSON.parse(localStorage.getItem(sepetAnahtari())) || []; } catch { return []; } }
@@ -101,7 +104,7 @@ async function baslat() {
     subePersoneliCache = tumPersonel.filter((p) => p.rol !== "admin" && p.aktif !== false && (!kullanici.subeId || p.subeId === kullanici.subeId));
     garsonlarCache = subePersoneliCache.filter((p) => p.rol === "garson");
     if (garsonAtamaPaneliAcik) renderGarsonAtamaPaneli();
-    if (puantajPaneliAcik) renderPuantajPaneli();
+    if (aktifSekme === "puantaj") renderPuantajPaneli();
   });
 
   if (kullanici.subeId) {
@@ -114,9 +117,8 @@ async function baslat() {
     ? query(collection(db, "puantaj"), where("subeId", "==", kullanici.subeId))
     : query(collection(db, "puantaj"));
   onSnapshot(puantajQuery, (snap) => {
-    const tumu = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    puantajBugunCache = tumu.filter((p) => p.tarih === tarihAnahtari());
-    if (puantajPaneliAcik) renderPuantajPaneli();
+    puantajTumKayitlarCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (aktifSekme === "puantaj") renderPuantajPaneli();
   });
 
   const kasaHareketQuery = kullanici.subeId
@@ -125,7 +127,7 @@ async function baslat() {
   onSnapshot(kasaHareketQuery, (snap) => {
     const tumu = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     kasaHareketleriBugunCache = tumu.filter((k) => k.tarih === tarihAnahtari());
-    if (kasaHareketPaneliAcik) renderKasaHareketPaneli();
+    if (aktifSekme === "kasahareket") renderKasaHareketPaneli();
   });
 
   const adisyonlarQuery = kullanici.subeId
@@ -152,17 +154,27 @@ async function baslat() {
     if (garsonAtamaPaneliAcik) renderGarsonAtamaPaneli();
   });
 
-  document.getElementById("puantaj-goster-buton").addEventListener("click", () => {
-    puantajPaneliAcik = !puantajPaneliAcik;
-    document.getElementById("puantaj-paneli").hidden = !puantajPaneliAcik;
-    if (puantajPaneliAcik) renderPuantajPaneli();
+  document.querySelectorAll(".adisyon-sekme-buton").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      aktifSekme = btn.dataset.sekme;
+      document.querySelectorAll(".adisyon-sekme-buton").forEach((b) => b.classList.toggle("aktif", b === btn));
+      document.querySelectorAll(".adisyon-sekme-icerik").forEach((s) => { s.hidden = s.id !== `adisyon-sekme-${aktifSekme}`; });
+      if (aktifSekme === "puantaj") renderPuantajPaneli();
+      if (aktifSekme === "kasahareket") renderKasaHareketPaneli();
+    });
   });
 
-  document.getElementById("kasa-hareket-goster-buton").addEventListener("click", () => {
-    kasaHareketPaneliAcik = !kasaHareketPaneliAcik;
-    document.getElementById("kasa-hareket-paneli").hidden = !kasaHareketPaneliAcik;
-    if (kasaHareketPaneliAcik) renderKasaHareketPaneli();
+  document.getElementById("puantaj-tarih-input").value = puantajSeciliTarih;
+  document.getElementById("puantaj-tarih-input").addEventListener("change", (e) => {
+    puantajSeciliTarih = e.target.value || tarihAnahtari();
+    renderPuantajPaneli();
   });
+  document.getElementById("puantaj-bugun-buton").addEventListener("click", () => {
+    puantajSeciliTarih = tarihAnahtari();
+    document.getElementById("puantaj-tarih-input").value = puantajSeciliTarih;
+    renderPuantajPaneli();
+  });
+  document.getElementById("puantaj-manuel-ekle-buton").addEventListener("click", () => puantajManuelModaliGoster());
 
   document.getElementById("kasa-hareket-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -193,22 +205,37 @@ async function baslat() {
   document.getElementById("gun-sonu-goster-buton").addEventListener("click", () => gunSonuModaliGoster());
 }
 
+// Seçili tarih için bir personelin puantaj kaydını bulur (o gün için tek
+// kayıt varsayılır — açık kalan varsa o, yoksa en son kapanmış olan).
+function personelinGunlukKaydi(personelId, tarih) {
+  const gununKayitlari = puantajTumKayitlarCache.filter((k) => k.personelId === personelId && k.tarih === tarih);
+  return gununKayitlari.find((k) => !k.cikisZamani)
+    || gununKayitlari.sort((a, b) => (b.girisZamani?.toMillis?.() || 0) - (a.girisZamani?.toMillis?.() || 0))[0]
+    || null;
+}
+
 function renderPuantajPaneli() {
   const el = document.getElementById("puantaj-listesi");
   if (subePersoneliCache.length === 0) {
     el.innerHTML = `<div class="bos-durum">Şubenize tanımlı personel bulunamadı.</div>`;
     return;
   }
+  const bugunMu = puantajSeciliTarih === tarihAnahtari();
   const liste = subePersoneliCache.slice().sort((a, b) => (a.ad || "").localeCompare(b.ad || "", "tr"));
   el.innerHTML = liste.map((p) => {
-    const kayit = puantajBugunCache.find((k) => k.personelId === p.id && !k.cikisZamani) || puantajBugunCache.filter((k) => k.personelId === p.id).sort((a, b) => (b.girisZamani?.toMillis?.() || 0) - (a.girisZamani?.toMillis?.() || 0))[0];
+    const kayit = personelinGunlukKaydi(p.id, puantajSeciliTarih);
     let durumHtml;
     if (!kayit) {
-      durumHtml = `<span class="puantaj-durum bekliyor">Henüz gelmedi</span><button class="btn-yesil btn-kucuk" data-giris="${p.id}">Giriş Yap</button>`;
+      durumHtml = bugunMu
+        ? `<span class="puantaj-durum bos-kayit">Henüz gelmedi</span><button class="btn-yesil btn-kucuk" data-giris="${p.id}">Giriş Yap</button>`
+        : `<span class="puantaj-durum bos-kayit">Kayıt yok</span><button class="btn-ikincil btn-kucuk" data-manuel-ekle="${p.id}">+ Ekle</button>`;
     } else if (!kayit.cikisZamani) {
-      durumHtml = `<span class="puantaj-durum geldi">${saatFormat(kayit.girisZamani)}'te geldi${kayit.gecGeldi ? ` <b class="puantaj-gec">(geç)</b>` : ""}</span><button class="btn-kirmizi btn-kucuk" data-cikis="${kayit.id}">Çıkış Yap</button>`;
+      durumHtml = `<span class="puantaj-durum geldi">${saatFormat(kayit.girisZamani)}'te geldi${kayit.gecGeldi ? ` <b class="puantaj-gec">(geç)</b>` : ""}</span>` +
+        (bugunMu ? `<button class="btn-kirmizi btn-kucuk" data-cikis="${kayit.id}">Çıkış Yap</button>` : "") +
+        `<button class="btn-ikincil btn-kucuk" data-duzenle="${kayit.id}">✏️ Düzenle</button>`;
     } else {
-      durumHtml = `<span class="puantaj-durum tamam">${saatFormat(kayit.girisZamani)} → ${saatFormat(kayit.cikisZamani)}${kayit.gecGeldi ? ` <b class="puantaj-gec">geç geldi</b>` : ""}${kayit.erkenCikti ? ` <b class="puantaj-erken">erken çıktı</b>` : ""}</span>`;
+      durumHtml = `<span class="puantaj-durum tamam">${saatFormat(kayit.girisZamani)} → ${saatFormat(kayit.cikisZamani)}${kayit.gecGeldi ? ` <b class="puantaj-gec">geç geldi</b>` : ""}${kayit.erkenCikti ? ` <b class="puantaj-erken">erken çıktı</b>` : ""}</span>` +
+        `<button class="btn-ikincil btn-kucuk" data-duzenle="${kayit.id}">✏️ Düzenle</button>`;
     }
     return `
     <div class="liste-satir">
@@ -219,6 +246,10 @@ function renderPuantajPaneli() {
 
   el.querySelectorAll("[data-giris]").forEach((b) => b.addEventListener("click", () => girisKaydet(b.dataset.giris)));
   el.querySelectorAll("[data-cikis]").forEach((b) => b.addEventListener("click", () => cikisKaydet(b.dataset.cikis)));
+  el.querySelectorAll("[data-manuel-ekle]").forEach((b) => b.addEventListener("click", () => puantajManuelModaliGoster(null, b.dataset.manuelEkle)));
+  el.querySelectorAll("[data-duzenle]").forEach((b) => b.addEventListener("click", () => {
+    puantajManuelModaliGoster(puantajTumKayitlarCache.find((k) => k.id === b.dataset.duzenle));
+  }));
 }
 
 async function girisKaydet(personelId) {
@@ -252,7 +283,7 @@ async function girisKaydet(personelId) {
 }
 
 async function cikisKaydet(puantajId) {
-  const kayit = puantajBugunCache.find((k) => k.id === puantajId);
+  const kayit = puantajTumKayitlarCache.find((k) => k.id === puantajId);
   const p = subePersoneliCache.find((x) => x.id === kayit?.personelId);
   const simdi = new Date();
   let erkenCikti = false;
@@ -268,6 +299,103 @@ async function cikisKaydet(puantajId) {
   } catch (err) {
     bildirimGoster("Hata: " + err.message, "hata");
   }
+}
+
+// Manuel puantaj ekleme/düzenleme: "bugün şu saatte geldi, şu saatte çıktı"
+// şeklinde geçmiş/mevcut bir günü elle girebilmek veya düzeltebilmek için.
+// mevcutKayit verilirse düzenleme modu (personel/tarih sabit); verilmezse
+// yeni kayıt eklenir (onPersonelId ile personel önceden seçilmiş olabilir).
+function puantajManuelModaliGoster(mevcutKayit = null, onPersonelId = null) {
+  const duzenlemeModu = !!mevcutKayit;
+  const secilecekPersonelId = mevcutKayit?.personelId || onPersonelId || "";
+  const saatDegeriAl = (zamanAlani) => {
+    if (!zamanAlani?.toDate) return "";
+    const t = zamanAlani.toDate();
+    return `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
+  };
+
+  const katman = document.createElement("div");
+  katman.className = "modal-katman";
+  katman.innerHTML = `
+    <div class="modal-kutu" style="position:relative;">
+      <button class="modal-kapat">&times;</button>
+      <h3>${duzenlemeModu ? "✏️ Puantaj Kaydını Düzenle" : "+ Manuel Puantaj Kaydı"}</h3>
+      <form id="puantaj-manuel-form">
+        <div class="form-alan">
+          <label>Personel</label>
+          <select name="personelId" required ${duzenlemeModu ? "disabled" : ""}>
+            <option value="">Seçin...</option>
+            ${subePersoneliCache.map((p) => `<option value="${p.id}" ${p.id === secilecekPersonelId ? "selected" : ""}>${escapeHtml(p.ad)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="form-alan"><label>Tarih</label><input name="tarih" type="date" value="${mevcutKayit?.tarih || puantajSeciliTarih}" required /></div>
+        <div class="puantaj-manuel-satir">
+          <div class="form-alan"><label>Giriş Saati</label><input name="girisSaat" type="time" value="${saatDegeriAl(mevcutKayit?.girisZamani)}" required /></div>
+          <div class="form-alan"><label>Çıkış Saati (opsiyonel)</label><input name="cikisSaat" type="time" value="${saatDegeriAl(mevcutKayit?.cikisZamani)}" /></div>
+        </div>
+        <button type="submit" class="btn-birincil btn-tam">${duzenlemeModu ? "Kaydet" : "Ekle"}</button>
+      </form>
+    </div>`;
+  document.body.appendChild(katman);
+  katman.querySelector(".modal-kapat").addEventListener("click", () => katman.remove());
+  katman.addEventListener("click", (e) => { if (e.target === katman) katman.remove(); });
+
+  katman.querySelector("#puantaj-manuel-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const personelId = duzenlemeModu ? mevcutKayit.personelId : fd.get("personelId");
+    const p = subePersoneliCache.find((x) => x.id === personelId);
+    if (!p) { bildirimGoster("Personel seçin.", "uyari"); return; }
+    const tarih = fd.get("tarih");
+    const girisSaat = fd.get("girisSaat");
+    const cikisSaat = fd.get("cikisSaat");
+    if (!tarih || !girisSaat) { bildirimGoster("Tarih ve giriş saati zorunludur.", "uyari"); return; }
+
+    const girisZamani = new Date(`${tarih}T${girisSaat}:00`);
+    const cikisZamani = cikisSaat ? new Date(`${tarih}T${cikisSaat}:00`) : null;
+    if (cikisZamani && cikisZamani <= girisZamani) { bildirimGoster("Çıkış saati girişten sonra olmalıdır.", "uyari"); return; }
+
+    let gecGeldi = false;
+    if (p.mesaiBaslangic) {
+      const [hh, mm] = p.mesaiBaslangic.split(":").map(Number);
+      const beklenen = new Date(girisZamani);
+      beklenen.setHours(hh, mm + 5, 0, 0);
+      gecGeldi = girisZamani > beklenen;
+    }
+    let erkenCikti = false;
+    if (cikisZamani && p.mesaiBitis) {
+      const [hh, mm] = p.mesaiBitis.split(":").map(Number);
+      const beklenen = new Date(cikisZamani);
+      beklenen.setHours(hh, mm, 0, 0);
+      erkenCikti = cikisZamani < beklenen;
+    }
+
+    const gonderButon = e.target.querySelector('button[type="submit"]');
+    gonderButon.disabled = true;
+    try {
+      if (duzenlemeModu) {
+        await updateDoc(doc(db, "puantaj", mevcutKayit.id), {
+          tarih, girisZamani, cikisZamani, gecGeldi, erkenCikti, manuelDuzenlendi: true,
+        });
+        bildirimGoster("Puantaj kaydı güncellendi.", "basari");
+      } else {
+        await addDoc(collection(db, "puantaj"), {
+          personelId: p.id,
+          personelAdi: p.ad,
+          rol: p.rol,
+          subeId: kullanici.subeId || p.subeId || null,
+          subeAdi: subeDokumani?.ad || "",
+          tarih, girisZamani, cikisZamani, gecGeldi, erkenCikti,
+          manuelGirildi: true,
+        });
+        bildirimGoster("Puantaj kaydı eklendi.", "basari");
+      }
+      katman.remove();
+    } catch (err) {
+      bildirimGoster("Hata: " + err.message, "hata");
+      gonderButon.disabled = false;
+    }
+  });
 }
 
 function renderKasaHareketPaneli() {
@@ -377,8 +505,11 @@ function gunSonuModaliGoster() {
         kapanmaZamani: serverTimestamp(),
       });
       await updateDoc(doc(db, "subeler", kullanici.subeId), { sonKasaDevri: sayilan, sonGunSonuTarihi: tarihAnahtari() });
-      bildirimGoster("Gün sonu kapatıldı.", "basari");
+      bildirimGoster("Gün sonu kapatıldı. Oturum kapatılıyor, yeni gelen personel kendi şifresiyle giriş yapmalı...", "basari");
       katman.remove();
+      // Gün sonu kapandıktan sonra terminal yeniden kullanılabilir olmamalı —
+      // her gelen personel adisyon hesabını kendi şifresiyle devralmalı.
+      setTimeout(() => { cikisYap(); }, 1500);
     } catch (err) {
       bildirimGoster("Hata: " + err.message, "hata");
       buton.disabled = false;

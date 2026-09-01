@@ -23,15 +23,8 @@
 .sekme-icerik[hidden] { display: none; }
 .sekme-eylemler { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
 
-.liste-alani { display: flex; flex-direction: column; gap: 10px; }
-.liste-satir {
-  background: #fff; border-radius: 10px; padding: 12px 16px; display: flex; align-items: center;
-  gap: 14px; box-shadow: var(--golge); flex-wrap: wrap;
-}
-.liste-satir .ana-bilgi { flex: 1; min-width: 160px; }
-.liste-satir .ana-bilgi strong { display: block; font-size: 15px; }
-.liste-satir .ana-bilgi span { font-size: 12px; color: var(--renk-yazi-soluk); }
-.liste-satir .eylemler { display: flex; gap: 6px; }
+/* .liste-alani / .liste-satir → public/shared/common.css'e taşındı (adisyon
+   ekranı da aynı sınıfları kullanıyor, tek yerden tema-uyumlu yönetiliyor). */
 
 .panel-kart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 22px; }
 .panel-kart { background: #fff; border-radius: 12px; padding: 18px; box-shadow: var(--golge); }

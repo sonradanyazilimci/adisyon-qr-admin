@@ -9,17 +9,40 @@ body { background: var(--renk-arkaplan); }
 .adisyon-header p { font-size: 12px; color: var(--renk-yazi-soluk); margin: 2px 0 0; }
 .adisyon-ust-eylemler { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 
+/* Ana sekme çubuğu: Masalar / Puantaj / Kasa Hareketleri — her biri artık
+   anasayfa üstünde açılıp kapanan bir panel değil, kendi bağımsız sekmesi. */
+.adisyon-sekme-cubugu {
+  display: flex; gap: 4px; padding: 10px 22px 0; background: var(--renk-kart);
+  border-bottom: 1px solid var(--renk-kenar); overflow-x: auto;
+}
+.adisyon-sekme-buton {
+  background: none; color: var(--renk-yazi-soluk); border-radius: 10px 10px 0 0;
+  padding: 10px 18px; font-size: 14px; font-weight: 700; white-space: nowrap;
+  border-bottom: 3px solid transparent;
+}
+.adisyon-sekme-buton:hover { color: var(--renk-yazi); }
+.adisyon-sekme-buton.aktif { color: var(--renk-ana); border-bottom-color: var(--renk-ana); background: var(--renk-ikincil-bg); }
+.adisyon-sekme-icerik[hidden] { display: none; }
+
 .tam-genislik-panel {
   background: var(--renk-kart); margin: 16px 22px 0; padding: 16px 20px; border-radius: 14px; box-shadow: var(--golge);
 }
 .tam-genislik-panel h2 { font-size: 15px; margin: 0 0 12px; }
 
+.puantaj-panel-baslik { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.puantaj-panel-baslik h2 { margin: 0; }
+.puantaj-tarih-secim { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.puantaj-tarih-secim input[type="date"] { width: auto; }
+
 .puantaj-durum { font-size: 12px; color: var(--renk-yazi-soluk); margin-right: 8px; }
 .puantaj-durum.geldi { color: var(--renk-ana); font-weight: 700; }
 .puantaj-durum.tamam { color: var(--renk-yazi); font-weight: 600; }
+.puantaj-durum.bos-kayit { font-style: italic; }
 .puantaj-gec { color: #e67e22; }
 .puantaj-erken { color: #e67e22; }
 .puantaj-eylem { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.puantaj-manuel-satir { display: flex; gap: 10px; }
+.puantaj-manuel-satir > .form-alan { flex: 1; }
 
 .kasa-hareket-form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .kasa-hareket-form select { max-width: 160px; }
@@ -133,4 +156,21 @@ body { background: var(--renk-arkaplan); }
 
 @media (max-width: 800px) {
   .adisyon-govde { flex-direction: column; }
+}
+
+@media (max-width: 560px) {
+  .adisyon-header { flex-direction: column; align-items: stretch; gap: 10px; }
+  .adisyon-ust-eylemler { justify-content: stretch; }
+  .adisyon-ust-eylemler button:not(.tema-degistir-buton) { flex: 1; }
+  .adisyon-sekme-cubugu { padding: 8px 10px 0; }
+  .adisyon-sekme-buton { flex: 1; text-align: center; padding: 10px 8px; }
+  .tam-genislik-panel { margin: 12px 10px 0; padding: 14px; }
+  .puantaj-panel-baslik { flex-direction: column; align-items: stretch; }
+  .puantaj-tarih-secim { width: 100%; }
+  .puantaj-tarih-secim input[type="date"] { flex: 1; }
+  .puantaj-eylem { width: 100%; }
+  .puantaj-eylem button { flex: 1; }
+  .puantaj-manuel-satir { flex-direction: column; gap: 0; }
+  .kasa-hareket-form { flex-direction: column; }
+  .kasa-hareket-form select, .kasa-hareket-form input[name="tutar"] { max-width: none; }
 }
