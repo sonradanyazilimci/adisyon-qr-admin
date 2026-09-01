@@ -2,7 +2,7 @@ import { db } from "../../shared/firebase-config.js";
 import {
   collection, doc, getDoc, onSnapshot, query,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { siparisOlustur, garsonCagir } from "../../shared/siparis.js";
+import { siparisTaslakOlustur, garsonCagir } from "../../shared/siparis.js";
 import {
   paraFormat, escapeHtml, alerjenRozetleriHtml, ALERJEN_LISTESI, bildirimGoster, debounce,
   kategorilerSirali, kategoriVeAltlariIds, temaBaslat,
@@ -283,14 +283,14 @@ async function siparisGonder(katman) {
   buton.disabled = true;
   buton.textContent = "Gönderiliyor...";
   try {
-    await siparisOlustur({
+    await siparisTaslakOlustur({
       masaId,
       urunler: sepet.map((s) => ({ urunId: s.urunId, adet: s.adet, not: s.not || "" })),
       garsonAdi: "Müşteri (QR Menü)",
     });
     sepet = [];
     sepetYaz(sepet);
-    bildirimGoster("Siparişiniz alındı! Afiyet olsun 🎉", "basari");
+    bildirimGoster("Siparişiniz garsonumuza iletildi, onaylandıktan sonra hazırlanmaya başlanacak! 🎉", "basari");
     katman.remove();
   } catch (err) {
     console.error(err);

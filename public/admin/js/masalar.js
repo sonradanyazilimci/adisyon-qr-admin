@@ -4,6 +4,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { bildirimGoster, snapshotHataYakala, escapeHtml, masaQrUrl, MASA_DURUMLARI } from "../../shared/utils.js";
 import { subelerCache, subelerDegisti } from "./subeler.js";
+import { personelCache, personelDegisti } from "./personel.js";
 
 export let masalarCache = [];
 
@@ -24,6 +25,7 @@ export function baslat() {
   );
 
   subelerDegisti(() => { renderSubeFiltre(); render(); });
+  personelDegisti(() => render());
   ekleButon.addEventListener("click", () => formGoster());
   subeFiltreEl.addEventListener("change", (e) => { subeFiltre = e.target.value; render(); });
 }
@@ -37,6 +39,11 @@ function renderSubeFiltre() {
 
 function subeAdi(id) {
   return subelerCache.find((s) => s.id === id)?.ad || "Şubesiz";
+}
+
+function garsonAdi(id) {
+  if (!id) return null;
+  return personelCache.find((p) => p.id === id)?.ad || null;
 }
 
 function render() {
@@ -56,6 +63,7 @@ function render() {
     <div class="masa-karti">
       <strong>${escapeHtml(m.ad)}</strong>
       <div style="font-size:11px;color:var(--renk-yazi-soluk);">${escapeHtml(subeAdi(m.subeId))}</div>
+      <div style="font-size:11px;color:var(--renk-yazi-soluk);">👤 ${garsonAdi(m.sorumluGarsonId) ? escapeHtml(garsonAdi(m.sorumluGarsonId)) : "Sorumlu atanmadı"}</div>
       <div class="durum-rozet"><span class="rozet" style="background:${durum.renk}">${durum.etiket}</span></div>
       ${m.garsonCagirildi ? `<div style="color:var(--renk-kirmizi);font-size:12px;font-weight:700;margin-bottom:8px;">🔔 Garson çağırdı</div>` : ""}
       <div class="eylemler">
@@ -76,6 +84,8 @@ function formGoster(masa = null) {
   const katman = document.createElement("div");
   katman.className = "modal-katman";
   const subeSecenekleri = subelerCache.map((s) => `<option value="${s.id}" ${masa?.subeId === s.id ? "selected" : ""}>${escapeHtml(s.ad)}</option>`).join("");
+  const garsonlar = personelCache.filter((p) => p.rol === "garson" && (!masa?.subeId || p.subeId === masa.subeId));
+  const garsonSecenekleri = garsonlar.map((p) => `<option value="${p.id}" ${masa?.sorumluGarsonId === p.id ? "selected" : ""}>${escapeHtml(p.ad)}</option>`).join("");
   katman.innerHTML = `
     <div class="modal-kutu" style="position:relative;">
       <button class="modal-kapat">&times;</button>
@@ -83,6 +93,13 @@ function formGoster(masa = null) {
       <form id="masa-form">
         <div class="form-alan"><label>Şube</label><select name="subeId" required><option value="">Seçiniz...</option>${subeSecenekleri}</select></div>
         <div class="form-alan"><label>Masa Adı / Numarası</label><input name="ad" required value="${masa ? escapeHtml(masa.ad) : ""}" placeholder="Örn: Masa 5, Bahçe 2" /></div>
+        <div class="form-alan">
+          <label>Sorumlu Garson (opsiyonel)</label>
+          <select name="sorumluGarsonId">
+            <option value="">Atanmadı</option>
+            ${garsonSecenekleri}
+          </select>
+        </div>
         ${masa ? `<div class="form-alan"><label>Durum</label>
           <select name="durum">
             <option value="bos" ${masa.durum === "bos" ? "selected" : ""}>Boş</option>
@@ -99,7 +116,13 @@ function formGoster(masa = null) {
   katman.querySelector("#masa-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    const veri = { ad: fd.get("ad").trim(), subeId: fd.get("subeId") };
+    const sorumluId = fd.get("sorumluGarsonId") || null;
+    const veri = {
+      ad: fd.get("ad").trim(),
+      subeId: fd.get("subeId"),
+      sorumluGarsonId: sorumluId,
+      sorumluGarsonAdi: sorumluId ? (personelCache.find((p) => p.id === sorumluId)?.ad || null) : null,
+    };
     if (masa) veri.durum = fd.get("durum");
     try {
       if (masa) {

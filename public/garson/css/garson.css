@@ -4,7 +4,7 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
   background: var(--renk-kart); padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;
   box-shadow: 0 2px 8px rgba(0,0,0,.05); position: sticky; top: 0; z-index: 40;
 }
-.garson-header h1 { font-size: 18px; margin: 0; }
+.garson-header h1 { font-size: 15px; letter-spacing: .02em; margin: 0; }
 .garson-header p { font-size: 12px; color: var(--renk-yazi-soluk); margin: 2px 0 0; }
 
 .masa-secim-alani { padding: 16px 18px; }
@@ -23,6 +23,18 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
 .masa-kart-mini.yeni-siparis::before {
   content: "🆕"; position: absolute; top: -8px; left: -6px; font-size: 16px;
 }
+.masa-kart-mini.hazir-siparis { border-color: var(--renk-yesil); }
+.masa-kart-mini.onay-bekliyor { border-color: #9b59b6; }
+.hazir-etiketi {
+  font-size: 10px; font-weight: 800; color: var(--renk-yesil); margin-top: 4px;
+  animation: hazirYanip 1.2s ease-in-out infinite;
+}
+.onay-etiketi {
+  font-size: 10px; font-weight: 800; color: #9b59b6; margin-top: 4px;
+  animation: hazirYanip 1.2s ease-in-out infinite;
+}
+.benim-masam-etiketi { font-size: 13px; margin-right: 3px; }
+@keyframes hazirYanip { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 
 .siparis-alani { padding: 8px 18px 20px; }
 .siparis-alani-baslik { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
@@ -41,3 +53,10 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
 }
 .mevcut-siparis-blok .kalem { display: flex; justify-content: space-between; font-size: 13px; padding: 2px 0; }
 .mevcut-siparis-blok .kalem .not { color: var(--renk-yazi-soluk); font-size: 11px; }
+.mevcut-siparis-blok.hazir-vurgu { border-left-color: var(--renk-yesil); }
+.mevcut-siparis-blok.onay-vurgu { border-left-color: #9b59b6; background: rgba(155,89,182,.06); }
+.mevcut-siparis-blok.iptal-vurgu { border-left-color: var(--renk-gri); opacity: .6; }
+.mevcut-siparis-blok .servis-et-buton { width: 100%; margin-top: 8px; }
+.siparis-eylem-satir { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.siparis-eylem-satir button { flex: 1; min-width: 80px; }
+.iptal-notu { font-size: 12px; color: var(--renk-yazi-soluk); margin-top: 6px; font-style: italic; }

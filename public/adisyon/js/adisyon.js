@@ -3,7 +3,7 @@ import {
   collection, doc, getDoc, updateDoc, addDoc, onSnapshot, query, where, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { sayfaKorumaBaslat, cikisYap } from "../../shared/auth.js";
-import { siparisOlustur } from "../../shared/siparis.js";
+import { siparisOlustur, siparisiOnayla, siparisiGuncelle, siparisiIptalEt } from "../../shared/siparis.js";
 import {
   paraFormat, escapeHtml, tarihFormat, bildirimGoster, debounce, MASA_DURUMLARI, SIPARIS_DURUMLARI,
   ALERJEN_LISTESI, kategorilerSirali, kategoriVeAltlariIds, temaBaslat,
@@ -22,6 +22,11 @@ let menuAcik = false;
 let aktifKategori = "";
 let aramaMetni = "";
 let sepet = [];
+// Dokunmatik ekranda kolay masa taşıma/birleştirme: butona basınca "seçim
+// modu" açılır, ekrandaki masalardan birine dokununca işlem tamamlanır —
+// ayrı bir liste/modal açmaya gerek kalmaz.
+// { tur: 'tasi', kaynakMasaId } | { tur: 'birlestir', hedefMasaId } | null
+let eylemModu = null;
 
 function sepetAnahtari() { return `sepet_kasa_${seciliMasaId}`; }
 function sepetOku() { try { return JSON.parse(localStorage.getItem(sepetAnahtari())) || []; } catch { return []; } }
@@ -78,33 +83,77 @@ function masaninAcikSiparisleri(masaId) {
 }
 function siparisTutari(s) { return Number(s.toplamTutar) || 0; }
 
+function renderEylemBanner() {
+  const banner = document.getElementById("eylem-modu-banner");
+  if (!eylemModu) { banner.hidden = true; return; }
+  const kaynakId = eylemModu.tur === "tasi" ? eylemModu.kaynakMasaId : eylemModu.hedefMasaId;
+  const kaynakMasa = masalarCache.find((m) => m.id === kaynakId);
+  banner.hidden = false;
+  banner.innerHTML = `
+    <span>${eylemModu.tur === "tasi" ? "↪️" : "🔗"} <b>${escapeHtml(kaynakMasa?.ad || "")}</b> — ${eylemModu.tur === "tasi" ? "taşınacak masaya dokunun" : "birleştirilecek masaya dokunun"}</span>
+    <button id="eylem-iptal-buton" class="btn-ikincil btn-kucuk">✕ İptal</button>
+  `;
+  banner.querySelector("#eylem-iptal-buton").addEventListener("click", () => {
+    eylemModu = null;
+    renderMasalar();
+  });
+}
+
 function renderMasalar() {
+  renderEylemBanner();
   const grid = document.getElementById("masalar-grid");
   const liste = masalarCache.slice().sort((a, b) => (a.ad || "").localeCompare(b.ad || "", "tr", { numeric: true }));
   if (liste.length === 0) { grid.innerHTML = `<div class="bos-durum">Masa bulunamadı.</div>`; return; }
+
+  const eylemKaynakId = eylemModu ? (eylemModu.tur === "tasi" ? eylemModu.kaynakMasaId : eylemModu.hedefMasaId) : null;
 
   grid.innerHTML = liste.map((m) => {
     const acikSiparisler = masaninAcikSiparisleri(m.id);
     const toplam = acikSiparisler.reduce((acc, s) => acc + siparisTutari(s), 0);
     const yeniSiparisVar = acikSiparisler.some((s) => s.durum === "yeni");
+    const onayBekliyorVar = acikSiparisler.some((s) => s.durum === "onay_bekliyor");
+    const eylemModunda = !!eylemModu;
+    const buMasaEylemKaynagi = m.id === eylemKaynakId;
     return `
-    <div class="masa-kart-adisyon ${m.durum || "bos"} ${m.id === seciliMasaId ? "secili" : ""} ${m.garsonCagirildi ? "cagirdi" : ""} ${yeniSiparisVar ? "yeni-siparis" : ""}" data-masa="${m.id}">
+    <div class="masa-kart-adisyon ${m.durum || "bos"} ${m.id === seciliMasaId ? "secili" : ""} ${m.garsonCagirildi ? "cagirdi" : ""} ${yeniSiparisVar ? "yeni-siparis" : ""} ${onayBekliyorVar ? "onay-bekliyor-var" : ""} ${eylemModunda ? "eylem-modu-aktif" : ""} ${buMasaEylemKaynagi ? "eylem-kaynagi" : ""}" data-masa="${m.id}">
       ${escapeHtml(m.ad)}
       <div class="durum" style="color:${(MASA_DURUMLARI[m.durum] || MASA_DURUMLARI.bos).renk}">${(MASA_DURUMLARI[m.durum] || MASA_DURUMLARI.bos).etiket}</div>
-      ${toplam > 0 ? `<div class="tutar">${paraFormat(toplam)}</div>` : ""}
+      ${onayBekliyorVar ? `<div class="tutar" style="color:#9b59b6;">⏳ Onay Bekliyor</div>` : toplam > 0 ? `<div class="tutar">${paraFormat(toplam)}</div>` : ""}
     </div>`;
   }).join("");
 
-  grid.querySelectorAll("[data-masa]").forEach((el) => el.addEventListener("click", () => {
-    seciliMasaId = el.dataset.masa;
-    seciliOdemeYontemi = "nakit";
-    menuAcik = false;
-    aktifKategori = "";
-    aramaMetni = "";
-    sepet = sepetOku();
-    renderMasalar();
-    renderDetay();
-  }));
+  grid.querySelectorAll("[data-masa]").forEach((el) => el.addEventListener("click", () => masaKartiTiklandi(el.dataset.masa)));
+}
+
+async function masaKartiTiklandi(tiklananId) {
+  if (eylemModu) {
+    if (eylemModu.tur === "tasi") {
+      if (tiklananId === eylemModu.kaynakMasaId) { eylemModu = null; renderMasalar(); return; }
+      const kaynakId = eylemModu.kaynakMasaId;
+      eylemModu = null;
+      await siparisleriTasi(kaynakId, tiklananId);
+      seciliMasaId = tiklananId;
+      renderMasalar();
+      renderDetay();
+    } else {
+      if (tiklananId === eylemModu.hedefMasaId) { eylemModu = null; renderMasalar(); return; }
+      const hedefId = eylemModu.hedefMasaId;
+      eylemModu = null;
+      await siparisleriTasi(tiklananId, hedefId);
+      seciliMasaId = hedefId;
+      renderMasalar();
+      renderDetay();
+    }
+    return;
+  }
+  seciliMasaId = tiklananId;
+  seciliOdemeYontemi = "nakit";
+  menuAcik = false;
+  aktifKategori = "";
+  aramaMetni = "";
+  sepet = sepetOku();
+  renderMasalar();
+  renderDetay();
 }
 
 function renderDetay() {
@@ -126,20 +175,31 @@ function renderDetay() {
     ${acikSiparisler.length === 0
       ? `<div class="bos-durum">Bu masada açık sipariş yok.</div>`
       : `
-        ${acikSiparisler.map((s) => `
-          <div class="siparis-blok">
+        ${acikSiparisler.map((s) => {
+          const revizeEdilebilir = s.durum === "onay_bekliyor" || s.durum === "yeni";
+          return `
+          <div class="siparis-blok ${s.durum === "onay_bekliyor" ? "onay-vurgu" : ""}">
             <div class="siparis-blok-ust">
               <span>${tarihFormat(s.olusturmaZamani)} · ${escapeHtml(s.garsonAdi || "—")}</span>
-              <select class="siparis-durum-select" data-siparis="${s.id}">
-                ${Object.entries(SIPARIS_DURUMLARI).filter(([k]) => k !== "kapandi").map(([k, v]) => `<option value="${k}" ${s.durum === k ? "selected" : ""}>${v.etiket}</option>`).join("")}
-              </select>
+              ${revizeEdilebilir
+                ? `<span class="rozet" style="background:${(SIPARIS_DURUMLARI[s.durum] || SIPARIS_DURUMLARI.yeni).renk}">${(SIPARIS_DURUMLARI[s.durum] || SIPARIS_DURUMLARI.yeni).etiket}</span>`
+                : `<select class="siparis-durum-select" data-siparis="${s.id}">
+                    ${["hazirlaniyor", "hazir", "servis_edildi"].map((k) => `<option value="${k}" ${s.durum === k ? "selected" : ""}>${SIPARIS_DURUMLARI[k].etiket}</option>`).join("")}
+                  </select>`}
             </div>
             ${(s.urunler || []).map((k) => `
               <div class="siparis-kalem">
                 <span>${k.adet}x ${escapeHtml(k.ad)} ${k.not ? `<span class="not">(${escapeHtml(k.not)})</span>` : ""}</span>
                 <span>${paraFormat(k.tutar ?? k.adet * k.fiyat)}</span>
               </div>`).join("")}
-          </div>`).join("")}
+            ${revizeEdilebilir ? `
+              <div class="siparis-eylem-satir">
+                ${s.durum === "onay_bekliyor" ? `<button class="btn-birincil btn-kucuk onayla-buton" data-siparis="${s.id}">✅ Onayla</button>` : ""}
+                <button class="btn-ikincil btn-kucuk duzenle-buton" data-siparis="${s.id}">✏️ Düzenle</button>
+                <button class="btn-kirmizi btn-kucuk iptal-buton" data-siparis="${s.id}">❌ İptal Et</button>
+              </div>` : ""}
+          </div>`;
+        }).join("")}
 
         <div class="toplam-satir"><span>Genel Toplam</span><span>${paraFormat(toplamTutar)}</span></div>
 
@@ -165,19 +225,14 @@ function renderDetay() {
   `;
 
   panel.querySelector("#masa-tasi-buton").addEventListener("click", () => {
-    masaSeciciGoster("Bu masadaki siparişler hangi masaya taşınsın?", seciliMasaId, async (hedefId) => {
-      await siparisleriTasi(seciliMasaId, hedefId);
-      seciliMasaId = hedefId;
-      renderMasalar();
-      renderDetay();
-    });
+    eylemModu = { tur: "tasi", kaynakMasaId: seciliMasaId };
+    renderMasalar();
+    document.getElementById("masalar-grid").scrollIntoView({ behavior: "smooth", block: "start" });
   });
   panel.querySelector("#masa-birlestir-buton").addEventListener("click", () => {
-    masaSeciciGoster("Hangi masa bu masayla birleştirilsin?", seciliMasaId, async (kaynakId) => {
-      await siparisleriTasi(kaynakId, seciliMasaId);
-      renderMasalar();
-      renderDetay();
-    });
+    eylemModu = { tur: "birlestir", hedefMasaId: seciliMasaId };
+    renderMasalar();
+    document.getElementById("masalar-grid").scrollIntoView({ behavior: "smooth", block: "start" });
   });
 
   panel.querySelectorAll(".siparis-durum-select").forEach((sel) => {
@@ -190,6 +245,23 @@ function renderDetay() {
       }
     });
   });
+
+  panel.querySelectorAll(".onayla-buton").forEach((b) => b.addEventListener("click", async () => {
+    b.disabled = true;
+    try {
+      await siparisiOnayla(b.dataset.siparis);
+      bildirimGoster("Sipariş onaylandı, mutfağa düştü.", "basari");
+    } catch (err) {
+      bildirimGoster("Hata: " + err.message, "hata");
+      b.disabled = false;
+    }
+  }));
+  panel.querySelectorAll(".duzenle-buton").forEach((b) => b.addEventListener("click", () => {
+    duzenlemeModaliGoster(acikSiparisler.find((s) => s.id === b.dataset.siparis));
+  }));
+  panel.querySelectorAll(".iptal-buton").forEach((b) => b.addEventListener("click", () => {
+    iptalModaliGoster(acikSiparisler.find((s) => s.id === b.dataset.siparis));
+  }));
 
   panel.querySelectorAll("[data-odeme]").forEach((b) => b.addEventListener("click", () => { seciliOdemeYontemi = b.dataset.odeme; renderDetay(); }));
   panel.querySelector("#fis-yazdir-buton")?.addEventListener("click", () => fisYazdir(masa, acikSiparisler, toplamTutar));
@@ -305,43 +377,127 @@ function urunEkleModali(urun) {
   });
 }
 
-// Başka bir masa seçmek için basit bir liste modalı gösterir; seçilince
-// callback(hedefMasaId) çağrılır. `haricTutId` listeye dahil edilmeyecek masa.
-function masaSeciciGoster(baslik, haricTutId, callback) {
+// Sipariş "hazırlanıyor"a geçmeden önce (onay_bekliyor/yeni durumundayken)
+// ürün adedi değiştirmek, ürün eklemek/çıkarmak için düzenleme ekranı.
+function duzenlemeModaliGoster(siparis) {
+  if (!siparis) return;
+  let kalemler = (siparis.urunler || []).map((k) => ({ ...k }));
+  const katman = document.createElement("div");
+  katman.className = "alt-sayfa-katman";
+
+  function icerik() {
+    const toplam = kalemler.reduce((acc, k) => acc + k.adet * k.fiyat, 0);
+    return `
+      <div class="alt-sayfa-tutamac"></div>
+      <h2>${escapeHtml(siparis.masaAd || "")} — Siparişi Düzenle</h2>
+      <div class="sepet-listesi">
+        ${kalemler.length === 0 ? `<div class="bos-durum">Tüm ürünler çıkarıldı.</div>` : kalemler.map((k, i) => `
+          <div class="sepet-satir">
+            <div class="ad">${escapeHtml(k.ad)}${k.not ? ` <span style="color:var(--renk-yazi-soluk);">(${escapeHtml(k.not)})</span>` : ""}</div>
+            <div class="adet-kontrol"><button data-eksi="${i}">−</button><span>${k.adet}</span><button data-arti="${i}">+</button></div>
+            <div style="width:70px;text-align:right;font-weight:700;">${paraFormat(k.adet * k.fiyat)}</div>
+          </div>`).join("")}
+      </div>
+      <button type="button" id="duzenle-urun-ekle-buton" class="btn-ikincil btn-tam" style="margin-bottom:12px;">+ Ürün Ekle</button>
+      <div class="sepet-toplam-satir"><span>Toplam</span><span>${paraFormat(toplam)}</span></div>
+      <button id="duzenle-kaydet-buton" class="btn-birincil btn-tam" ${kalemler.length === 0 ? "disabled" : ""}>Değişiklikleri Kaydet</button>
+    `;
+  }
+
+  katman.innerHTML = `<div class="alt-sayfa" id="duzenle-icerik">${icerik()}</div>`;
+  document.body.appendChild(katman);
+  katman.addEventListener("click", (e) => { if (e.target === katman) katman.remove(); });
+
+  function bagla() {
+    const icerikEl = katman.querySelector("#duzenle-icerik");
+    icerikEl.querySelectorAll("[data-arti]").forEach((b) => b.addEventListener("click", () => { kalemler[b.dataset.arti].adet++; icerikEl.innerHTML = icerik(); bagla(); }));
+    icerikEl.querySelectorAll("[data-eksi]").forEach((b) => b.addEventListener("click", () => { const i = b.dataset.eksi; if (--kalemler[i].adet <= 0) kalemler.splice(i, 1); icerikEl.innerHTML = icerik(); bagla(); }));
+    icerikEl.querySelector("#duzenle-urun-ekle-buton").addEventListener("click", () => {
+      duzenlemeUrunSeciciGoster((urun) => {
+        const mevcut = kalemler.find((k) => k.urunId === urun.id && !k.not);
+        if (mevcut) mevcut.adet += 1; else kalemler.push({ urunId: urun.id, ad: urun.ad, fiyat: urun.fiyat, adet: 1, not: "" });
+        icerikEl.innerHTML = icerik();
+        bagla();
+      });
+    });
+    const kaydetButon = icerikEl.querySelector("#duzenle-kaydet-buton");
+    kaydetButon?.addEventListener("click", async () => {
+      kaydetButon.disabled = true;
+      kaydetButon.textContent = "Kaydediliyor...";
+      try {
+        await siparisiGuncelle(siparis.id, kalemler.map((k) => ({ urunId: k.urunId, adet: k.adet, not: k.not || "" })));
+        bildirimGoster("Sipariş güncellendi.", "basari");
+        katman.remove();
+      } catch (err) {
+        bildirimGoster("Hata: " + err.message, "hata");
+        kaydetButon.disabled = false;
+        kaydetButon.textContent = "Değişiklikleri Kaydet";
+      }
+    });
+  }
+  bagla();
+}
+
+// Düzenleme ekranından yeni ürün eklemek için basit bir katalog seçici.
+function duzenlemeUrunSeciciGoster(secilinceCallback) {
   const katman = document.createElement("div");
   katman.className = "modal-katman";
-  const secenekler = masalarCache
-    .filter((m) => m.id !== haricTutId)
-    .sort((a, b) => (a.ad || "").localeCompare(b.ad || "", "tr", { numeric: true }));
-
   katman.innerHTML = `
     <div class="modal-kutu" style="position:relative;">
       <button class="modal-kapat">&times;</button>
-      <h3>${escapeHtml(baslik)}</h3>
-      <div class="liste-alani">
-        ${secenekler.length === 0
-          ? `<div class="bos-durum">Başka masa bulunamadı.</div>`
-          : secenekler.map((m) => {
-              const acik = masaninAcikSiparisleri(m.id);
-              const toplam = acik.reduce((acc, s) => acc + siparisTutari(s), 0);
-              const durum = MASA_DURUMLARI[m.durum] || MASA_DURUMLARI.bos;
-              return `
-              <div class="liste-satir" data-hedef="${m.id}" style="cursor:pointer;">
-                <div class="ana-bilgi">
-                  <strong>${escapeHtml(m.ad)}</strong>
-                  <span style="color:${durum.renk}">${durum.etiket}${toplam > 0 ? " · " + paraFormat(toplam) : ""}</span>
-                </div>
-              </div>`;
-            }).join("")}
-      </div>
+      <h3>Ürün Ekle</h3>
+      <input id="duzenle-urun-ara" type="search" placeholder="Ürün ara..." style="margin-bottom:10px;" />
+      <div class="liste-alani" id="duzenle-urun-liste" style="max-height:50vh;overflow-y:auto;"></div>
     </div>`;
   document.body.appendChild(katman);
   katman.querySelector(".modal-kapat").addEventListener("click", () => katman.remove());
   katman.addEventListener("click", (e) => { if (e.target === katman) katman.remove(); });
-  katman.querySelectorAll("[data-hedef]").forEach((el) => el.addEventListener("click", () => {
-    callback(el.dataset.hedef);
-    katman.remove();
-  }));
+
+  function listeyiCiz(filtre = "") {
+    const el = katman.querySelector("#duzenle-urun-liste");
+    const liste = urunlerCache.filter((u) => !filtre || u.ad?.toLowerCase().includes(filtre));
+    el.innerHTML = liste.map((u) => `
+      <div class="liste-satir" data-urun="${u.id}" style="cursor:pointer;">
+        <div class="ana-bilgi"><strong>${escapeHtml(u.ad)}</strong><span>${paraFormat(u.fiyat)}</span></div>
+      </div>`).join("");
+    el.querySelectorAll("[data-urun]").forEach((satir) => satir.addEventListener("click", () => {
+      secilinceCallback(urunlerCache.find((u) => u.id === satir.dataset.urun));
+      katman.remove();
+    }));
+  }
+  listeyiCiz();
+  katman.querySelector("#duzenle-urun-ara").addEventListener("input", debounce((e) => listeyiCiz(e.target.value.toLowerCase()), 200));
+}
+
+// Sipariş "hazırlanıyor"a geçmeden önce iptal — kısa bir not zorunlu.
+function iptalModaliGoster(siparis) {
+  if (!siparis) return;
+  const katman = document.createElement("div");
+  katman.className = "modal-katman";
+  katman.innerHTML = `
+    <div class="modal-kutu" style="position:relative;">
+      <button class="modal-kapat">&times;</button>
+      <h3>${escapeHtml(siparis.masaAd || "")} — Siparişi İptal Et</h3>
+      <div class="form-alan"><label>İptal nedeni (kısa not, zorunlu)</label><input id="iptal-not" placeholder="Örn: müşteri vazgeçti" required /></div>
+      <button id="iptal-onayla-buton" class="btn-kirmizi btn-tam">İptal Et</button>
+    </div>`;
+  document.body.appendChild(katman);
+  katman.querySelector(".modal-kapat").addEventListener("click", () => katman.remove());
+  katman.addEventListener("click", (e) => { if (e.target === katman) katman.remove(); });
+  katman.querySelector("#iptal-onayla-buton").addEventListener("click", async () => {
+    const not = katman.querySelector("#iptal-not").value.trim();
+    if (!not) { bildirimGoster("İptal için kısa bir not yazmalısınız.", "uyari"); return; }
+    const buton = katman.querySelector("#iptal-onayla-buton");
+    buton.disabled = true;
+    try {
+      await siparisiIptalEt(siparis.id, not);
+      bildirimGoster("Sipariş iptal edildi.", "basari");
+      katman.remove();
+    } catch (err) {
+      bildirimGoster("Hata: " + err.message, "hata");
+      buton.disabled = false;
+    }
+  });
 }
 
 // Bir masadaki tüm açık siparişleri başka bir masaya taşır (masa taşıma ve

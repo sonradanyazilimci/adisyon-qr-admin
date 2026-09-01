@@ -106,31 +106,24 @@ service cloud.firestore {
       allow write: if rol('admin');
     }
 
-    // Hammaddeler / stok. Sipariş sırasında STOK DÜŞÜMÜ artık client
-    // transaction ile yapıldığından, sipariş veren taraf (kimliksiz müşteri
-    // dahil) o transaction içinde hammadde belgesini OKUYABİLMELİDİR —
-    // bu yüzden tekil belge okuma (`get`) herkese açıktır, ama TÜM stok
-    // listesini sorgulamak (`list`) sadece personele açıktır (stok
-    // envanterinin dışarıdan taranmasını engeller). Yazmada da HERKESE dar
-    // kapsamlı bir "sadece azalt" izni verilir: yalnızca mevcutStok alanı
-    // değişebilir, asla negatife veya eski değerinden BÜYÜK bir değere
-    // çekilemez (stok artırılamaz; artırma/manuel düzeltme sadece admin'e
-    // açıktır).
+    // Hammaddeler / stok. Sipariş oluşturma artık müşteri tarafında stok
+    // düşmüyor (bkz. siparisler notu) — stok düşümü/iadesi SADECE personel
+    // onay/iptal/düzenleme işlemlerinde tetiklenir. Bu yüzden hammaddeler
+    // tamamen personele kapalı (müşteri hiç erişemez).
     match /hammaddeler/{id} {
-      allow get: if true;
-      allow list: if personel();
+      allow read: if personel();
       allow write: if rol('admin');
-      allow update: if sadeceAlanlar(['mevcutStok', 'guncellemeZamani'])
-                      && request.resource.data.mevcutStok >= 0
-                      && request.resource.data.mevcutStok <= resource.data.mevcutStok;
+      // Onay/iptal/düzenleme sırasında stok düşürmek VEYA iade etmek (artırmak)
+      // için personelin mevcutStok alanını her iki yönde de değiştirebilmesi
+      // gerekir (iptalde iade = artış). Sadece bu alanı değiştirebilir.
+      allow update: if personel() && sadeceAlanlar(['mevcutStok', 'guncellemeZamani']);
     }
 
-    // Stok hareketleri geçmişi (append-only log). Personel serbestçe not
-    // düşebilir; kimliksiz müşteri sadece "siparis" sebepli otomatik
-    // düşüm kaydı oluşturabilir. Güncelleme/silme sadece admin.
+    // Stok hareketleri geçmişi (append-only log) — sadece personel yazar
+    // (müşteri artık hiçbir stok işlemine dokunmuyor). Güncelleme/silme admin.
     match /stokHareketleri/{id} {
       allow read: if personel();
-      allow create: if personel() || request.resource.data.sebep == 'siparis';
+      allow create: if personel();
       allow update, delete: if rol('admin');
     }
 
@@ -147,15 +140,22 @@ service cloud.firestore {
         || (sadeceAlanlar(['durum']) && request.resource.data.durum == 'dolu');
     }
 
-    // Siparişler — personel her zaman oluşturabilir/günceller. Kimliksiz
-    // müşteri de QR menüden sipariş oluşturabilir; temel yapı kontrolleri
-    // (var olan bir masaya, pozitif tutarla, "yeni" durumda) uygulanır.
+    // Siparişler — personel her zaman oluşturabilir/günceller (onaylama,
+    // revize, iptal, durum ilerletme — hepsi personel() ile yetkilendirilir,
+    // hangi geçişin geçerli olduğunu client (shared/siparis.js) kontrol eder).
+    //
+    // Kimliksiz müşteri (QR menü) SADECE "onay_bekliyor" durumunda, stok
+    // DÜŞÜLMEMİŞ (stokDusuldu==false) bir taslak sipariş oluşturabilir —
+    // artık doğrudan mutfağa/"yeni" durumuna düşmez, önce garson onayından
+    // geçmesi gerekir (bkz. siparisiOnayla). Müşteri oluşturduktan sonra
+    // KENDİ siparişini değiştiremez/iptal edemez — sadece personel() günceller.
     match /siparisler/{id} {
       allow read: if personel();
       allow create: if personel() || (
         request.resource.data.masaId is string
         && exists(/databases/$(database)/documents/masalar/$(request.resource.data.masaId))
-        && request.resource.data.durum == 'yeni'
+        && request.resource.data.durum == 'onay_bekliyor'
+        && request.resource.data.stokDusuldu == false
         && request.resource.data.urunler is list
         && request.resource.data.urunler.size() > 0
         && request.resource.data.toplamTutar is number

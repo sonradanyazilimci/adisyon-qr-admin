@@ -5,7 +5,11 @@ import { getAuth, createUserWithEmailAndPassword, signOut } from "https://www.gs
 import { bildirimGoster, snapshotHataYakala, escapeHtml } from "../../shared/utils.js";
 import { subelerCache, subelerDegisti } from "./subeler.js";
 
-let personelCache = [];
+export let personelCache = [];
+const dinleyiciler = [];
+export function personelDegisti(cb) { dinleyiciler.push(cb); }
+function bildir() { dinleyiciler.forEach((cb) => cb(personelCache)); }
+
 const listeEl = document.getElementById("personel-liste");
 const ekleButon = document.getElementById("personel-ekle-buton");
 
@@ -17,6 +21,7 @@ export function baslat() {
     (snap) => {
       personelCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       render();
+      bildir();
     },
     snapshotHataYakala("personel")
   );

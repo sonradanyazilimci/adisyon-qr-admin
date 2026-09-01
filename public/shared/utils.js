@@ -20,10 +20,12 @@ export const ALERJEN_LISTESI = {
 };
 
 export const SIPARIS_DURUMLARI = {
+  onay_bekliyor: { etiket: "Onay Bekliyor", renk: "#9b59b6" },
   yeni: { etiket: "Yeni", renk: "#e67e22" },
   hazirlaniyor: { etiket: "Hazırlanıyor", renk: "#3498db" },
   hazir: { etiket: "Hazır", renk: "#27ae60" },
   servis_edildi: { etiket: "Servis Edildi", renk: "#8e44ad" },
+  iptal: { etiket: "İptal Edildi", renk: "#95a5a6" },
   kapandi: { etiket: "Kapandı", renk: "#7f8c8d" },
 };
 
