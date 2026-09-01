@@ -29,7 +29,7 @@
     <nav class="adisyon-sekme-cubugu yazdirma-gizle">
       <button class="adisyon-sekme-buton aktif" data-sekme="masalar">🍽️ Masalar</button>
       <button class="adisyon-sekme-buton" data-sekme="puantaj">🕐 Puantaj</button>
-      <button class="adisyon-sekme-buton" data-sekme="kasahareket">💰 Kasa Hareketleri</button>
+      <button class="adisyon-sekme-buton" data-sekme="kasahareket">💼 Ön Muhasebe</button>
     </nav>
 
     <section id="adisyon-sekme-masalar" class="adisyon-sekme-icerik">
@@ -69,16 +69,20 @@
 
     <section id="adisyon-sekme-kasahareket" class="adisyon-sekme-icerik yazdirma-gizle" hidden>
       <div class="tam-genislik-panel">
-        <h2>💰 Kasa Hareketleri — Bu Vardiya</h2>
+        <h2>💼 Ön Muhasebe — Bu Vardiya</h2>
+        <p style="font-size:12px;color:var(--renk-yazi-soluk);margin-top:-8px;">Kasadaki nakit, bankadaki para ve kredi kartı hesabı arasındaki manuel giriş/çıkışları buradan kaydedin (ör. personele ödeme, bankaya para yatırma, gider).</p>
         <form id="kasa-hareket-form" class="kasa-hareket-form">
-          <select name="tur" required>
-            <option value="nakit_giris">⬆️ Nakit Giriş</option>
-            <option value="nakit_cikis">⬇️ Nakit Çıkış</option>
+          <select name="hesap" id="kasa-hareket-hesap-secim" required></select>
+          <select name="yon" required>
+            <option value="giris">⬆️ Giriş</option>
+            <option value="cikis">⬇️ Çıkış</option>
           </select>
+          <select name="kategori" id="kasa-hareket-kategori-secim"></select>
           <input name="tutar" type="number" step="0.01" min="0.01" placeholder="Tutar (₺)" required />
-          <input name="aciklama" type="text" placeholder="Açıklama (örn: değişik para, gider vb.)" />
+          <input name="aciklama" type="text" placeholder="Açıklama" />
           <button type="submit" class="btn-birincil">Ekle</button>
         </form>
+        <div id="kasa-hareket-ozet-panel" class="panel-kart-grid"></div>
         <div id="kasa-hareket-listesi"></div>
       </div>
     </section>

@@ -102,6 +102,13 @@ label { font-size: 13px; font-weight: 600; color: var(--renk-yazi-soluk); displa
   padding: 18px;
 }
 
+/* Küçük özet/istatistik kartları — admin panel VE adisyon (ön muhasebe özeti)
+   ortak kullanır. */
+.panel-kart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 22px; }
+.panel-kart { background: var(--renk-kart); border-radius: 12px; padding: 18px; box-shadow: var(--golge); }
+.panel-kart .deger { font-size: 26px; font-weight: 800; margin: 4px 0; }
+.panel-kart .etiket { font-size: 13px; color: var(--renk-yazi-soluk); font-weight: 600; }
+
 /* Genel liste satırı — admin ve adisyon ekranları ortak kullanır.
    Mobilde (dar ekran) yatay hizalama yerine dikey yığılıp buton(lar) tam
    genişlik olur, böylece metin/buton üst üste binmez. */

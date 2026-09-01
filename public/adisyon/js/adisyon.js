@@ -7,10 +7,11 @@ import { siparisOlustur, siparisiOnayla, siparisiGuncelle, siparisiIptalEt } fro
 import {
   paraFormat, escapeHtml, tarihFormat, saatFormat, tarihAnahtari, bildirimGoster, debounce,
   MASA_DURUMLARI, SIPARIS_DURUMLARI, ALERJEN_LISTESI, kategorilerSirali, kategoriVeAltlariIds, temaBaslat,
-  urunSubedeAktifMi, urunSubeFiyati,
+  urunSubedeAktifMi, urunSubeFiyati, YEMEK_CEKI_MARKALARI, KASA_HESAP_ETIKET, KASA_HAREKET_KATEGORILERI,
 } from "../../shared/utils.js";
 
 const ROL_ETIKET = { admin: "Admin", garson: "Garson", kasa: "Kasa", mutfak: "Mutfak" };
+const ODEME_YONTEMI_ETIKET = { nakit: "NAKİT", kart: "KART", yemek_ceki: "YEMEK ÇEKİ" };
 
 temaBaslat();
 
@@ -22,6 +23,7 @@ let urunlerCache = [];
 let garsonlarCache = [];
 let seciliMasaId = null;
 let seciliOdemeYontemi = "nakit";
+let seciliYemekCekiMarkasi = YEMEK_CEKI_MARKALARI[0];
 let menuAcik = false;
 let aktifKategori = "";
 let aramaMetni = "";
@@ -210,6 +212,11 @@ async function baslat() {
   });
   document.getElementById("puantaj-manuel-ekle-buton").addEventListener("click", () => puantajManuelModaliGoster());
 
+  document.getElementById("kasa-hareket-hesap-secim").innerHTML = Object.entries(KASA_HESAP_ETIKET)
+    .map(([deger, etiket]) => `<option value="${deger}">${etiket}</option>`).join("");
+  document.getElementById("kasa-hareket-kategori-secim").innerHTML = Object.entries(KASA_HAREKET_KATEGORILERI)
+    .map(([deger, etiket]) => `<option value="${deger}">${etiket}</option>`).join("");
+
   document.getElementById("kasa-hareket-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -219,7 +226,9 @@ async function baslat() {
       await addDoc(collection(db, "kasaHareketleri"), {
         subeId: kullanici.subeId || null,
         subeAdi: subeDokumani?.ad || "",
-        tur: fd.get("tur"),
+        hesap: fd.get("hesap"),
+        yon: fd.get("yon"),
+        kategori: fd.get("kategori") || "",
         tutar: Number(fd.get("tutar")) || 0,
         aciklama: fd.get("aciklama")?.trim() || "",
         tarih: tarihAnahtari(),
@@ -227,7 +236,7 @@ async function baslat() {
         yapanKullanici: kullanici.ad,
         yapanKullaniciId: auth.currentUser?.uid || null,
       });
-      bildirimGoster("Kasa hareketi eklendi.", "basari");
+      bildirimGoster("Hareket eklendi.", "basari");
       e.target.reset();
     } catch (err) {
       bildirimGoster("Hata: " + err.message, "hata");
@@ -451,26 +460,51 @@ function vardiyaAdisyonlari() {
   return adisyonlarTumCache.filter((a) => (a.kapanmaZamani?.toMillis?.() || 0) > sinir);
 }
 
+// Eski kayıtlar `tur: "nakit_giris"/"nakit_cikis"` alanıyla tutuluyordu; yeni
+// kayıtlar `hesap`+`yon` kullanır. Geriye dönük uyumluluk için: hesap/yön
+// belirtilmemişse eski `tur` alanından çıkarılır (hepsi nakitti).
+function hareketHesap(k) { return k.hesap || "nakit"; }
+function hareketYon(k) { return k.yon || (k.tur === "nakit_cikis" ? "cikis" : "giris"); }
+function hareketTutari(hesap, yon, liste = vardiyaKasaHareketleri()) {
+  return liste.filter((k) => hareketHesap(k) === hesap && hareketYon(k) === yon).reduce((acc, k) => acc + Number(k.tutar || 0), 0);
+}
+
 function renderKasaHareketPaneli() {
   const el = document.getElementById("kasa-hareket-listesi");
+  const ozetEl = document.getElementById("kasa-hareket-ozet-panel");
   const vardiyaListesi = vardiyaKasaHareketleri();
-  const toplamGiris = vardiyaListesi.filter((k) => k.tur === "nakit_giris").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
-  const toplamCikis = vardiyaListesi.filter((k) => k.tur === "nakit_cikis").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
-  const siraliListe = vardiyaListesi.slice().sort((a, b) => (b.zaman?.toMillis?.() || 0) - (a.zaman?.toMillis?.() || 0));
 
+  const nakitGiris = hareketTutari("nakit", "giris", vardiyaListesi);
+  const nakitCikis = hareketTutari("nakit", "cikis", vardiyaListesi);
+  const bankaGiris = hareketTutari("banka", "giris", vardiyaListesi);
+  const bankaCikis = hareketTutari("banka", "cikis", vardiyaListesi);
+  const kartGiris = hareketTutari("kart", "giris", vardiyaListesi);
+  const kartCikis = hareketTutari("kart", "cikis", vardiyaListesi);
+  const personelOdeme = vardiyaListesi.filter((k) => k.kategori === "personel_odemesi").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
+
+  ozetEl.innerHTML = `
+    <div class="panel-kart"><div class="etiket">💵 Nakit (Giriş − Çıkış)</div><div class="deger">${paraFormat(nakitGiris - nakitCikis)}</div></div>
+    <div class="panel-kart"><div class="etiket">🏦 Banka (Giriş − Çıkış)</div><div class="deger">${paraFormat(bankaGiris - bankaCikis)}</div></div>
+    <div class="panel-kart"><div class="etiket">💳 Kart Hesabı (Giriş − Çıkış)</div><div class="deger">${paraFormat(kartGiris - kartCikis)}</div></div>
+    <div class="panel-kart"><div class="etiket">👤 Personele Ödenen</div><div class="deger" style="color:var(--renk-kirmizi);">${paraFormat(personelOdeme)}</div></div>
+  `;
+
+  const siraliListe = vardiyaListesi.slice().sort((a, b) => (b.zaman?.toMillis?.() || 0) - (a.zaman?.toMillis?.() || 0));
   el.innerHTML = `
-    <div class="kasa-hareket-ozet">
-      <span>Bu Vardiya Giriş: <b style="color:var(--renk-yesil)">${paraFormat(toplamGiris)}</b></span>
-      <span>Bu Vardiya Çıkış: <b style="color:var(--renk-kirmizi)">${paraFormat(toplamCikis)}</b></span>
-    </div>
     <div class="liste-alani">
-      ${siraliListe.length === 0 ? `<div class="bos-durum">Bu vardiyada henüz kasa hareketi yok.</div>` : siraliListe.map((k) => `
+      ${siraliListe.length === 0 ? `<div class="bos-durum">Bu vardiyada henüz hareket yok.</div>` : siraliListe.map((k) => {
+        const hesap = hareketHesap(k);
+        const yon = hareketYon(k);
+        const renk = yon === "giris" ? "var(--renk-yesil)" : "var(--renk-kirmizi)";
+        const kategoriEtiket = KASA_HAREKET_KATEGORILERI[k.kategori] || "";
+        return `
         <div class="liste-satir">
           <div class="ana-bilgi">
-            <strong style="color:${k.tur === "nakit_giris" ? "var(--renk-yesil)" : "var(--renk-kirmizi)"}">${k.tur === "nakit_giris" ? "⬆️ Giriş" : "⬇️ Çıkış"} — ${paraFormat(k.tutar)}</strong>
-            <span>${escapeHtml(k.aciklama || "")} ${k.aciklama ? "· " : ""}${escapeHtml(k.yapanKullanici || "")} · ${saatFormat(k.zaman)}</span>
+            <strong style="color:${renk}">${yon === "giris" ? "⬆️" : "⬇️"} ${KASA_HESAP_ETIKET[hesap] || hesap} — ${paraFormat(k.tutar)}</strong>
+            <span>${kategoriEtiket && k.kategori ? `${kategoriEtiket} · ` : ""}${escapeHtml(k.aciklama || "")} ${k.aciklama ? "· " : ""}${escapeHtml(k.yapanKullanici || "")} · ${saatFormat(k.zaman)}</span>
           </div>
-        </div>`).join("")}
+        </div>`;
+      }).join("")}
     </div>
   `;
 }
@@ -491,12 +525,27 @@ function gunSonuModaliGoster() {
   const katman = document.createElement("div");
   katman.className = "modal-katman";
 
-  const nakitSatis = vardiyaAdisyonlari().filter((a) => a.odemeYontemi === "nakit").reduce((acc, a) => acc + Number(a.toplamTutar || 0), 0);
-  const kartSatis = vardiyaAdisyonlari().filter((a) => a.odemeYontemi === "kart").reduce((acc, a) => acc + Number(a.toplamTutar || 0), 0);
-  const manuelGiris = vardiyaKasaHareketleri().filter((k) => k.tur === "nakit_giris").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
-  const manuelCikis = vardiyaKasaHareketleri().filter((k) => k.tur === "nakit_cikis").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
+  const vAdisyonlar = vardiyaAdisyonlari();
+  const vHareketler = vardiyaKasaHareketleri();
+  const nakitSatis = vAdisyonlar.filter((a) => a.odemeYontemi === "nakit").reduce((acc, a) => acc + Number(a.toplamTutar || 0), 0);
+  const kartSatis = vAdisyonlar.filter((a) => a.odemeYontemi === "kart").reduce((acc, a) => acc + Number(a.toplamTutar || 0), 0);
+  const yemekCekiKayitlari = vAdisyonlar.filter((a) => a.odemeYontemi === "yemek_ceki");
+  const yemekCekiSatis = yemekCekiKayitlari.reduce((acc, a) => acc + Number(a.toplamTutar || 0), 0);
+  const yemekCekiMarkaBazinda = {};
+  yemekCekiKayitlari.forEach((a) => {
+    const marka = a.yemekCekiMarkasi || "Diğer";
+    yemekCekiMarkaBazinda[marka] = (yemekCekiMarkaBazinda[marka] || 0) + Number(a.toplamTutar || 0);
+  });
+  const manuelGiris = hareketTutari("nakit", "giris", vHareketler);
+  const manuelCikis = hareketTutari("nakit", "cikis", vHareketler);
+  const bankaGiris = hareketTutari("banka", "giris", vHareketler);
+  const bankaCikis = hareketTutari("banka", "cikis", vHareketler);
+  const kartHareketGiris = hareketTutari("kart", "giris", vHareketler);
+  const kartHareketCikis = hareketTutari("kart", "cikis", vHareketler);
+  const personelOdemeToplam = vHareketler.filter((k) => k.kategori === "personel_odemesi").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
   const devir = Number(subeDokumani?.sonKasaDevri) || 0;
   const beklenenNakit = Math.round((devir + nakitSatis + manuelGiris - manuelCikis) * 100) / 100;
+  const yemekCekiOzetSatiri = Object.entries(yemekCekiMarkaBazinda).map(([m, t]) => `${escapeHtml(m)}: ${paraFormat(t)}`).join(", ");
 
   katman.innerHTML = `
     <div class="modal-kutu" style="position:relative;">
@@ -511,9 +560,16 @@ function gunSonuModaliGoster() {
         <div class="gs-satir"><span>Manuel Nakit Çıkış</span><span>${paraFormat(manuelCikis)}</span></div>
         <div class="gs-satir gs-vurgu"><span>Beklenen Nakit (kasada olması gereken)</span><span>${paraFormat(beklenenNakit)}</span></div>
       </div>
+      ${yemekCekiSatis > 0 || bankaGiris || bankaCikis || kartHareketGiris || kartHareketCikis || personelOdemeToplam ? `
+      <div class="gun-sonu-ozet" style="border-top:1px dashed var(--renk-kenar);padding-top:10px;">
+        ${yemekCekiSatis > 0 ? `<div class="gs-satir"><span>🎫 Yemek Çeki Satış${yemekCekiOzetSatiri ? ` <span style="font-weight:400;color:var(--renk-yazi-soluk);">(${yemekCekiOzetSatiri})</span>` : ""}</span><span>${paraFormat(yemekCekiSatis)}</span></div>` : ""}
+        ${bankaGiris || bankaCikis ? `<div class="gs-satir"><span>🏦 Banka Giriş / Çıkış</span><span>${paraFormat(bankaGiris)} / ${paraFormat(bankaCikis)}</span></div>` : ""}
+        ${kartHareketGiris || kartHareketCikis ? `<div class="gs-satir"><span>💳 Kart Hesabı Giriş / Çıkış</span><span>${paraFormat(kartHareketGiris)} / ${paraFormat(kartHareketCikis)}</span></div>` : ""}
+        ${personelOdemeToplam ? `<div class="gs-satir"><span>👤 Personele Ödenen</span><span>${paraFormat(personelOdemeToplam)}</span></div>` : ""}
+      </div>` : ""}
       <div class="form-alan"><label>Sayılan Nakit Tutar (fiilen kasada sayılan)</label><input id="sayilan-tutar" type="number" step="0.01" min="0" required /></div>
       <button id="gun-sonu-kapat-buton" class="btn-birincil btn-tam">Gün Sonunu Kapat ve Merkeze Gönder</button>
-      <p style="font-size:11px;color:var(--renk-yazi-soluk);margin-top:8px;">Gönderdikten sonra bu vardiyanın kaydı üzerinde değişiklik yapılamaz.</p>
+      <p style="font-size:11px;color:var(--renk-yazi-soluk);margin-top:8px;">Kasayı kapatan tüm nakdi teslim alır — bir sonraki vardiya sıfır devirle başlar. Gönderdikten sonra bu vardiyanın kaydı üzerinde değişiklik yapılamaz.</p>
     </div>`;
   document.body.appendChild(katman);
   katman.querySelector(".modal-kapat").addEventListener("click", () => katman.remove());
@@ -524,7 +580,7 @@ function gunSonuModaliGoster() {
     const sayilan = Number(sayilanInput.value);
     if (!(sayilan >= 0)) { bildirimGoster("Geçerli bir tutar girin.", "uyari"); return; }
     const fark = Math.round((sayilan - beklenenNakit) * 100) / 100;
-    if (!confirm(`Vardiya kapatılıp merkeze gönderilecek.\n\nBeklenen: ${paraFormat(beklenenNakit)}\nSayılan: ${paraFormat(sayilan)}\nFark: ${paraFormat(fark)}\n\nGönderdikten sonra bu kayıt üzerinde değişiklik yapılamaz. Devam edilsin mi?`)) return;
+    if (!confirm(`Vardiya kapatılıp merkeze gönderilecek.\n\nBeklenen: ${paraFormat(beklenenNakit)}\nSayılan: ${paraFormat(sayilan)}\nFark: ${paraFormat(fark)}\n\nSayılan nakdin tamamı kasadan çıkar (bir sonraki vardiya 0 devirle başlar). Gönderdikten sonra bu kayıt üzerinde değişiklik yapılamaz. Devam edilsin mi?`)) return;
     const buton = katman.querySelector("#gun-sonu-kapat-buton");
     buton.disabled = true;
     try {
@@ -535,8 +591,15 @@ function gunSonuModaliGoster() {
         devirTutari: devir,
         nakitSatisToplam: nakitSatis,
         kartSatisToplam: kartSatis,
+        yemekCekiSatisToplam: yemekCekiSatis,
+        yemekCekiMarkaBazinda,
         manuelNakitGiris: manuelGiris,
         manuelNakitCikis: manuelCikis,
+        bankaGiris,
+        bankaCikis,
+        kartHareketGiris,
+        kartHareketCikis,
+        personelOdemeToplam,
         beklenenNakit,
         sayilanNakit: sayilan,
         fark,
@@ -544,8 +607,11 @@ function gunSonuModaliGoster() {
         kapatanKullaniciId: auth.currentUser?.uid || null,
         kapanmaZamani: serverTimestamp(),
       });
+      // Kasayı kapatan tüm nakdi teslim alır (bankaya yatırır / işletme
+      // sahibine verir) — bu yüzden bir sonraki vardiya devirsiz (0) başlar,
+      // sayılan tutar bir sonrakine "borç" olarak aktarılmaz.
       await updateDoc(doc(db, "subeler", kullanici.subeId), {
-        sonKasaDevri: sayilan,
+        sonKasaDevri: 0,
         sonGunSonuZamani: serverTimestamp(),
         sonGunSonuTarihi: tarihAnahtari(),
       });
@@ -737,7 +803,15 @@ function renderDetay() {
         <div class="odeme-secim">
           <button data-odeme="nakit" class="${seciliOdemeYontemi === "nakit" ? "secili" : ""}">💵 Nakit</button>
           <button data-odeme="kart" class="${seciliOdemeYontemi === "kart" ? "secili" : ""}">💳 Kart</button>
+          <button data-odeme="yemek_ceki" class="${seciliOdemeYontemi === "yemek_ceki" ? "secili" : ""}">🎫 Yemek Çeki</button>
         </div>
+        ${seciliOdemeYontemi === "yemek_ceki" ? `
+        <div class="form-alan yemek-ceki-marka-secim">
+          <label>Yemek Çeki Markası</label>
+          <select id="yemek-ceki-marka-select">
+            ${YEMEK_CEKI_MARKALARI.map((m) => `<option value="${escapeHtml(m)}" ${seciliYemekCekiMarkasi === m ? "selected" : ""}>${escapeHtml(m)}</option>`).join("")}
+          </select>
+        </div>` : ""}
 
         <div class="detay-eylemler">
           <button id="fis-yazdir-buton" class="btn-ikincil btn-tam">🖨️ Fiş Yazdır</button>
@@ -795,6 +869,7 @@ function renderDetay() {
   }));
 
   panel.querySelectorAll("[data-odeme]").forEach((b) => b.addEventListener("click", () => { seciliOdemeYontemi = b.dataset.odeme; renderDetay(); }));
+  panel.querySelector("#yemek-ceki-marka-select")?.addEventListener("change", (e) => { seciliYemekCekiMarkasi = e.target.value; });
   panel.querySelector("#fis-yazdir-buton")?.addEventListener("click", () => fisYazdir(masa, acikSiparisler, toplamTutar));
   panel.querySelector("#hesap-kapat-buton")?.addEventListener("click", () => hesabiKapat(masa, acikSiparisler, toplamTutar));
 
@@ -1139,6 +1214,7 @@ function fisYazdir(masa, siparisler, toplam) {
     <div class="cizgi"></div>
     <table><tr><td><b>TOPLAM</b></td><td style="text-align:right;"><b>${paraFormat(toplam)}</b></td></tr></table>
     <div class="cizgi"></div>
+    <p style="text-align:center;font-size:12px;">Ödeme: ${ODEME_YONTEMI_ETIKET[seciliOdemeYontemi]}${seciliOdemeYontemi === "yemek_ceki" ? ` (${escapeHtml(seciliYemekCekiMarkasi)})` : ""}</p>
     <p style="text-align:center;font-size:12px;">${new Date().toLocaleString("tr-TR")}</p>
     <p style="text-align:center;font-size:12px;">Afiyet olsun, bizi tercih ettiğiniz için teşekkürler!</p>
   `;
@@ -1146,7 +1222,12 @@ function fisYazdir(masa, siparisler, toplam) {
 }
 
 async function hesabiKapat(masa, siparisler, toplam) {
-  if (!confirm(`${masa.ad} hesabını ${seciliOdemeYontemi === "nakit" ? "NAKİT" : "KART"} olarak ${paraFormat(toplam)} tutarında kapatmak istediğinize emin misiniz?`)) return;
+  if (seciliOdemeYontemi === "yemek_ceki" && !seciliYemekCekiMarkasi) {
+    bildirimGoster("Yemek çeki markası seçin.", "uyari");
+    return;
+  }
+  const odemeEtiket = ODEME_YONTEMI_ETIKET[seciliOdemeYontemi] + (seciliOdemeYontemi === "yemek_ceki" ? ` (${seciliYemekCekiMarkasi})` : "");
+  if (!confirm(`${masa.ad} hesabını ${odemeEtiket} olarak ${paraFormat(toplam)} tutarında kapatmak istediğinize emin misiniz?`)) return;
   try {
     await addDoc(collection(db, "adisyonlar"), {
       masaId: masa.id,
@@ -1155,6 +1236,7 @@ async function hesabiKapat(masa, siparisler, toplam) {
       siparisIdler: siparisler.map((s) => s.id),
       toplamTutar: toplam,
       odemeYontemi: seciliOdemeYontemi,
+      yemekCekiMarkasi: seciliOdemeYontemi === "yemek_ceki" ? seciliYemekCekiMarkasi : null,
       kapananKullanici: kullanici.ad,
       kapanmaZamani: serverTimestamp(),
     });

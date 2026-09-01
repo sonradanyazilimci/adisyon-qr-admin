@@ -46,6 +46,7 @@ body { background: var(--renk-arkaplan); }
 
 .kasa-hareket-form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .kasa-hareket-form select { max-width: 160px; }
+.kasa-hareket-form select[name="kategori"] { max-width: 190px; }
 .kasa-hareket-form input[name="tutar"] { max-width: 130px; }
 .kasa-hareket-form input[name="aciklama"] { flex: 1; min-width: 160px; }
 .kasa-hareket-form button { flex-shrink: 0; }
@@ -128,9 +129,10 @@ body { background: var(--renk-arkaplan); }
 .siparis-kalem .not { font-size: 11px; color: var(--renk-yazi-soluk); }
 .siparis-durum-select { max-width: 160px; font-size: 12px; padding: 4px 8px; }
 .toplam-satir { display: flex; justify-content: space-between; font-size: 18px; font-weight: 800; padding: 14px 0; border-top: 2px solid var(--renk-kenar); margin-top: 6px; }
-.odeme-secim { display: flex; gap: 10px; margin: 14px 0; }
-.odeme-secim button { flex: 1; padding: 12px; border-radius: 10px; background: var(--renk-ikincil-bg); color: var(--renk-yazi); font-weight: 700; }
+.odeme-secim { display: flex; gap: 10px; margin: 14px 0; flex-wrap: wrap; }
+.odeme-secim button { flex: 1; min-width: 90px; padding: 12px; border-radius: 10px; background: var(--renk-ikincil-bg); color: var(--renk-yazi); font-weight: 700; }
 .odeme-secim button.secili { background: var(--renk-ana); color: #fff; }
+.yemek-ceki-marka-secim { margin: -6px 0 14px; }
 .detay-eylemler { display: flex; gap: 10px; margin-top: 10px; }
 
 /* Kasa için POS tarzı yoğun ürün ızgarası — tüm ürünler tek bakışta görünür,

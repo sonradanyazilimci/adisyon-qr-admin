@@ -35,6 +35,25 @@ export const MASA_DURUMLARI = {
   odeme_bekliyor: { etiket: "Ödeme Bekliyor", renk: "#c0392b" },
 };
 
+// Yaygın Türkiye yemek çeki markaları — hesap kapatırken "Yemek Çeki" ödeme
+// yöntemi seçildiğinde hangi markayla ödendiği de kaydedilsin diye.
+export const YEMEK_CEKI_MARKALARI = ["Sodexo", "Multinet", "Setcard", "Edenred (Ticket)", "Metropol Card", "Winwin"];
+
+// Kasa hareketlerinde (manuel giriş/çıkış) "hangi hesap" — basit bir ön
+// muhasebe: kasadaki nakit, bankadaki para ve kart hesabı ayrı ayrı takip
+// edilir.
+export const KASA_HESAP_ETIKET = { nakit: "💵 Nakit Kasa", banka: "🏦 Banka", kart: "💳 Kredi Kartı" };
+
+// Kasa hareketinin NE İÇİN yapıldığı (opsiyonel) — raporlarda personele
+// ödenen paralar / genel giderler gibi kalemleri ayırt edebilmek için.
+export const KASA_HAREKET_KATEGORILERI = {
+  "": "Diğer",
+  personel_odemesi: "👤 Personel Ödemesi",
+  genel_gider: "🧾 Genel Gider",
+  banka_transferi: "🏦 Banka Transferi",
+  tedarikci_odemesi: "📦 Tedarikçi Ödemesi",
+};
+
 export function paraFormat(n) {
   const sayi = Number(n) || 0;
   return sayi.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺";

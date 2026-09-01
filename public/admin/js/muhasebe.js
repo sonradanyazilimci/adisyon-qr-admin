@@ -72,17 +72,22 @@ function render() {
 
   const nakitSatis = gecerli.reduce((acc, g) => acc + Number(g.nakitSatisToplam || 0), 0);
   const kartSatis = gecerli.reduce((acc, g) => acc + Number(g.kartSatisToplam || 0), 0);
+  const yemekCekiSatis = gecerli.reduce((acc, g) => acc + Number(g.yemekCekiSatisToplam || 0), 0);
   const manuelGiris = gecerli.reduce((acc, g) => acc + Number(g.manuelNakitGiris || 0), 0);
   const manuelCikis = gecerli.reduce((acc, g) => acc + Number(g.manuelNakitCikis || 0), 0);
+  const bankaGiris = gecerli.reduce((acc, g) => acc + Number(g.bankaGiris || 0), 0);
+  const bankaCikis = gecerli.reduce((acc, g) => acc + Number(g.bankaCikis || 0), 0);
+  const personelOdeme = gecerli.reduce((acc, g) => acc + Number(g.personelOdemeToplam || 0), 0);
   const netNakit = nakitSatis + manuelGiris - manuelCikis;
 
   ozetEl.innerHTML = `
     <div class="panel-kart"><div class="etiket">Nakit Satış (Raporlanan)</div><div class="deger">${paraFormat(nakitSatis)}</div></div>
     <div class="panel-kart"><div class="etiket">Kart Satış (Raporlanan)</div><div class="deger">${paraFormat(kartSatis)}</div></div>
-    <div class="panel-kart"><div class="etiket">Toplam Ciro</div><div class="deger">${paraFormat(nakitSatis + kartSatis)}</div></div>
-    <div class="panel-kart"><div class="etiket">Manuel Nakit Giriş</div><div class="deger" style="color:var(--renk-yesil);">${paraFormat(manuelGiris)}</div></div>
-    <div class="panel-kart"><div class="etiket">Manuel Nakit Çıkış</div><div class="deger" style="color:var(--renk-kirmizi);">${paraFormat(manuelCikis)}</div></div>
+    <div class="panel-kart"><div class="etiket">🎫 Yemek Çeki Satış</div><div class="deger">${paraFormat(yemekCekiSatis)}</div></div>
+    <div class="panel-kart"><div class="etiket">Toplam Ciro</div><div class="deger">${paraFormat(nakitSatis + kartSatis + yemekCekiSatis)}</div></div>
     <div class="panel-kart"><div class="etiket">Net Nakit Hareketi</div><div class="deger">${paraFormat(netNakit)}</div></div>
+    <div class="panel-kart"><div class="etiket">🏦 Banka Giriş / Çıkış</div><div class="deger" style="font-size:18px;">${paraFormat(bankaGiris)} / ${paraFormat(bankaCikis)}</div></div>
+    <div class="panel-kart"><div class="etiket">👤 Personele Ödenen</div><div class="deger" style="color:var(--renk-kirmizi);">${paraFormat(personelOdeme)}</div></div>
   `;
 
   // Merkezi muhasebe: "Tüm Şubeler" seçiliyken her şubenin RAPORLANMIŞ cirosu
@@ -92,12 +97,13 @@ function render() {
     subeOzetEl.innerHTML = `
       <div style="overflow-x:auto;">
         <table class="veri-tablo">
-          <thead><tr><th>Şube</th><th>Nakit Satış</th><th>Kart Satış</th><th>Toplam Ciro</th><th>Son Kapanış</th></tr></thead>
+          <thead><tr><th>Şube</th><th>Nakit Satış</th><th>Kart Satış</th><th>Yemek Çeki</th><th>Toplam Ciro</th><th>Son Kapanış</th></tr></thead>
           <tbody>
             ${subelerCache.map((s) => {
               const sGecerli = gecerli.filter((g) => g.subeId === s.id);
               const sNakit = sGecerli.reduce((acc, g) => acc + Number(g.nakitSatisToplam || 0), 0);
               const sKart = sGecerli.reduce((acc, g) => acc + Number(g.kartSatisToplam || 0), 0);
+              const sYemekCeki = sGecerli.reduce((acc, g) => acc + Number(g.yemekCekiSatisToplam || 0), 0);
               const enSon = subeninEnSonKapanisi(s.id);
               const sonKapanisHtml = enSon
                 ? `${tarihFormat(enSon.kapanmaZamani)} <span class="tablo-soluk">(${escapeHtml(enSon.kapatanKullanici || "")})</span>`
@@ -106,7 +112,8 @@ function render() {
                 <td><strong>${escapeHtml(s.ad)}</strong></td>
                 <td>${paraFormat(sNakit)}</td>
                 <td>${paraFormat(sKart)}</td>
-                <td><b>${paraFormat(sNakit + sKart)}</b></td>
+                <td>${paraFormat(sYemekCeki)}</td>
+                <td><b>${paraFormat(sNakit + sKart + sYemekCeki)}</b></td>
                 <td>${sonKapanisHtml}</td>
               </tr>`;
             }).join("")}
@@ -148,10 +155,29 @@ function render() {
 
   gunSonuListeEl.querySelectorAll("[data-ac]").forEach((b) => b.addEventListener("click", () => gunSonuAc(b.dataset.ac)));
 
-  // Ham manuel kasa hareketleri artık burada gösterilmez — her hareket
-  // ilgili vardiyanın gün sonu raporuna toplu olarak yansır (yukarıdaki
-  // tablo). Tek tek/anlık hareket akışı istenen davranış değil.
-  hareketListeEl.innerHTML = `<p style="color:var(--renk-yazi-soluk);font-size:13px;">Manuel kasa hareketlerinin ayrıntısı, ilgili vardiya "Gün Sonunu Kapat ve Merkeze Gönder" ile raporlandığında yukarıdaki Gün Sonu Kapanışları tablosundaki toplamlara yansır. Tek tek hareketler kapanış öncesi burada anlık görünmez.</p>`;
+  // Ham/anlık kasa hareketi akışı burada gösterilmez — sadece her vardiya
+  // KAPANIP GÖNDERİLDİKTEN sonra o vardiyanın banka/kart/personel ödemesi
+  // toplamları tek satır olarak görünür (basit bir ön muhasebe defteri gibi).
+  const bankaKartSirali = gsSirali.filter((g) => !g.iptalEdildi && (g.bankaGiris || g.bankaCikis || g.kartHareketGiris || g.kartHareketCikis || g.personelOdemeToplam));
+  hareketListeEl.innerHTML = bankaKartSirali.length === 0
+    ? `<p style="color:var(--renk-yazi-soluk);font-size:13px;">Seçilen aralıkta banka/kart hesabı hareketi veya personel ödemesi içeren gönderilmiş bir vardiya yok.</p>`
+    : `<div style="overflow-x:auto;">
+        <table class="veri-tablo">
+          <thead><tr><th>Şube</th><th>Vardiya (Kapanış)</th><th>Banka Giriş</th><th>Banka Çıkış</th><th>Kart Hesabı Giriş</th><th>Kart Hesabı Çıkış</th><th>Personele Ödenen</th></tr></thead>
+          <tbody>
+            ${bankaKartSirali.map((g) => `
+              <tr>
+                <td>${escapeHtml(g.subeAdi || "")}</td>
+                <td>${tarihFormat(g.kapanmaZamani)} <span class="tablo-soluk">(${escapeHtml(g.kapatanKullanici || "")})</span></td>
+                <td>${paraFormat(g.bankaGiris || 0)}</td>
+                <td>${paraFormat(g.bankaCikis || 0)}</td>
+                <td>${paraFormat(g.kartHareketGiris || 0)}</td>
+                <td>${paraFormat(g.kartHareketCikis || 0)}</td>
+                <td style="color:var(--renk-kirmizi);">${paraFormat(g.personelOdemeToplam || 0)}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>`;
 }
 
 // Yanlışlıkla veya hatalı sayımla kapatılmış bir vardiyayı admin geri açar
