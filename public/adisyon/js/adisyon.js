@@ -41,10 +41,12 @@ let garsonAtamaPaneliAcik = false;
 // Personel puantajı / ön muhasebe / gün sonu için durum
 let subePersoneliCache = [];
 let puantajTumKayitlarCache = []; // şubenin TÜM puantaj kayıtları (tarihe göre burada filtrelenmez, renderPuantajPaneli seçili tarihe göre filtreler)
-let kasaHareketleriBugunCache = [];
-let adisyonlarBugunCache = [];
+// TÜM (tarihe/vardiyaya göre burada filtrelenmemiş) kasa hareketi ve adisyon
+// kayıtları — "bu vardiyaya ait olanlar" vardiyaKasaHareketleri()/
+// vardiyaAdisyonlari() ile ANLIK hesaplanır (bkz. aşağıdaki yorum).
+let kasaHareketleriTumCache = [];
+let adisyonlarTumCache = [];
 let subeDokumani = null;
-let gunSonuBugunKaydi = null;
 // Ana içerik artık sekmeli: 'masalar' | 'puantaj' | 'kasahareket'
 let aktifSekme = "masalar";
 // Puantaj sekmesinde görüntülenen tarih — varsayılan bugün, ama geçmiş
@@ -144,6 +146,9 @@ async function baslat() {
   if (kullanici.subeId) {
     onSnapshot(doc(db, "subeler", kullanici.subeId), (snap) => {
       subeDokumani = snap.exists() ? { id: snap.id, ...snap.data() } : null;
+      // Vardiya sınırı (son kapanış zamanı) şube belgesinde tutulur — o
+      // değiştiğinde bu vardiyaya ait hareket listesi de yeniden hesaplanmalı.
+      if (aktifSekme === "kasahareket") renderKasaHareketPaneli();
     });
   }
 
@@ -155,12 +160,16 @@ async function baslat() {
     if (aktifSekme === "puantaj") renderPuantajPaneli();
   });
 
+  // NOT: kasaHareketleri/adisyonlar artık TAKVİM GÜNÜNE göre değil, "son gün
+  // sonu kapanışından bu yana" (VARDİYA) mantığıyla filtrelenir — bkz.
+  // vardiyaKasaHareketleri()/vardiyaAdisyonlari(). Böylece aynı takvim
+  // gününde birden fazla vardiya (personel değişimi) art arda kapanabilir;
+  // her kapanış sadece KENDİ vardiyasının hareketlerini kapsar.
   const kasaHareketQuery = kullanici.subeId
     ? query(collection(db, "kasaHareketleri"), where("subeId", "==", kullanici.subeId))
     : query(collection(db, "kasaHareketleri"));
   onSnapshot(kasaHareketQuery, (snap) => {
-    const tumu = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    kasaHareketleriBugunCache = tumu.filter((k) => k.tarih === tarihAnahtari());
+    kasaHareketleriTumCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     if (aktifSekme === "kasahareket") renderKasaHareketPaneli();
   });
 
@@ -168,18 +177,7 @@ async function baslat() {
     ? query(collection(db, "adisyonlar"), where("subeId", "==", kullanici.subeId))
     : query(collection(db, "adisyonlar"));
   onSnapshot(adisyonlarQuery, (snap) => {
-    const tumu = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    adisyonlarBugunCache = tumu.filter((a) => a.kapanmaZamani?.toDate && tarihAnahtari(a.kapanmaZamani.toDate()) === tarihAnahtari());
-  });
-
-  const gunSonuQuery = kullanici.subeId
-    ? query(collection(db, "gunSonuKapanislari"), where("subeId", "==", kullanici.subeId))
-    : query(collection(db, "gunSonuKapanislari"));
-  onSnapshot(gunSonuQuery, (snap) => {
-    const tumu = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    // İptal edilmiş (admin tarafından yeniden açılmış) bir kapanış artık
-    // "bugün kapalı" sayılmaz — kasa günü yeniden kapatabilmeli.
-    gunSonuBugunKaydi = tumu.find((g) => g.tarih === tarihAnahtari() && !g.iptalEdildi) || null;
+    adisyonlarTumCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   });
 
   document.getElementById("garson-atama-goster-buton").addEventListener("click", () => {
@@ -434,19 +432,39 @@ function puantajManuelModaliGoster(mevcutKayit = null, onPersonelId = null) {
   });
 }
 
+// Son gün sonu kapanışının kesin zamanı (Firestore Timestamp → ms). Hiç
+// kapanış yapılmamışsa 0 — yani "başlangıçtan bu yana" her şey bu vardiyaya
+// sayılır (ilk vardiya).
+function sonKapanisZamaniMs() {
+  return subeDokumani?.sonGunSonuZamani?.toMillis?.() || 0;
+}
+// Bu vardiyaya (son kapanıştan bu yana) ait kasa hareketleri/adisyonlar.
+// TAKVİM GÜNÜ değil, kapanış zamanı sınır alınır — böylece aynı gün içinde
+// birden fazla personel değişimi/vardiya art arda kapanabilir; bir sonraki
+// vardiya bir öncekinin hareketlerini bir daha görmez/saymaz.
+function vardiyaKasaHareketleri() {
+  const sinir = sonKapanisZamaniMs();
+  return kasaHareketleriTumCache.filter((k) => (k.zaman?.toMillis?.() || 0) > sinir);
+}
+function vardiyaAdisyonlari() {
+  const sinir = sonKapanisZamaniMs();
+  return adisyonlarTumCache.filter((a) => (a.kapanmaZamani?.toMillis?.() || 0) > sinir);
+}
+
 function renderKasaHareketPaneli() {
   const el = document.getElementById("kasa-hareket-listesi");
-  const toplamGiris = kasaHareketleriBugunCache.filter((k) => k.tur === "nakit_giris").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
-  const toplamCikis = kasaHareketleriBugunCache.filter((k) => k.tur === "nakit_cikis").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
-  const siraliListe = kasaHareketleriBugunCache.slice().sort((a, b) => (b.zaman?.toMillis?.() || 0) - (a.zaman?.toMillis?.() || 0));
+  const vardiyaListesi = vardiyaKasaHareketleri();
+  const toplamGiris = vardiyaListesi.filter((k) => k.tur === "nakit_giris").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
+  const toplamCikis = vardiyaListesi.filter((k) => k.tur === "nakit_cikis").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
+  const siraliListe = vardiyaListesi.slice().sort((a, b) => (b.zaman?.toMillis?.() || 0) - (a.zaman?.toMillis?.() || 0));
 
   el.innerHTML = `
     <div class="kasa-hareket-ozet">
-      <span>Bugün Giriş: <b style="color:var(--renk-yesil)">${paraFormat(toplamGiris)}</b></span>
-      <span>Bugün Çıkış: <b style="color:var(--renk-kirmizi)">${paraFormat(toplamCikis)}</b></span>
+      <span>Bu Vardiya Giriş: <b style="color:var(--renk-yesil)">${paraFormat(toplamGiris)}</b></span>
+      <span>Bu Vardiya Çıkış: <b style="color:var(--renk-kirmizi)">${paraFormat(toplamCikis)}</b></span>
     </div>
     <div class="liste-alani">
-      ${siraliListe.length === 0 ? `<div class="bos-durum">Bugün henüz kasa hareketi yok.</div>` : siraliListe.map((k) => `
+      ${siraliListe.length === 0 ? `<div class="bos-durum">Bu vardiyada henüz kasa hareketi yok.</div>` : siraliListe.map((k) => `
         <div class="liste-satir">
           <div class="ana-bilgi">
             <strong style="color:${k.tur === "nakit_giris" ? "var(--renk-yesil)" : "var(--renk-kirmizi)"}">${k.tur === "nakit_giris" ? "⬆️ Giriş" : "⬇️ Çıkış"} — ${paraFormat(k.tutar)}</strong>
@@ -457,6 +475,14 @@ function renderKasaHareketPaneli() {
   `;
 }
 
+// Gün sonu artık TAKVİM GÜNÜ başına bir kez değil, VARDİYA başına bir kez
+// yapılır: bir personel işini bitirip kasayı sayıp "Gün Sonunu Kapat"a
+// bastığında SADECE kendi vardiyasının (bir önceki kapanıştan bu yana
+// birikmiş) hareketleri raporlanır, kasa devri güncellenir ve oturum
+// kapatılır. Aynı takvim günü içinde bir sonraki personel kendi şifresiyle
+// girip AYNI şekilde kendi vardiyasını kapatabilir — "bugün zaten kapatıldı"
+// diye bir engel YOKTUR (aksi halde tek terminali paylaşan ardışık
+// vardiyalardan sadece ilki hiç kasa raporu veremezdi).
 function gunSonuModaliGoster() {
   if (!kullanici.subeId) {
     bildirimGoster("Gün sonu işlemi için bir şubeye bağlı olmalısınız.", "uyari");
@@ -465,34 +491,10 @@ function gunSonuModaliGoster() {
   const katman = document.createElement("div");
   katman.className = "modal-katman";
 
-  if (gunSonuBugunKaydi) {
-    const g = gunSonuBugunKaydi;
-    katman.innerHTML = `
-      <div class="modal-kutu" style="position:relative;">
-        <button class="modal-kapat">&times;</button>
-        <h2>🌙 Gün Sonu — Bugün Kapatıldı</h2>
-        <div class="gun-sonu-ozet">
-          <div class="gs-satir"><span>Devir (dünden)</span><span>${paraFormat(g.devirTutari)}</span></div>
-          <div class="gs-satir"><span>Nakit Satış</span><span>${paraFormat(g.nakitSatisToplam)}</span></div>
-          <div class="gs-satir"><span>Kart Satış</span><span>${paraFormat(g.kartSatisToplam)}</span></div>
-          <div class="gs-satir"><span>Manuel Nakit Giriş</span><span>${paraFormat(g.manuelNakitGiris)}</span></div>
-          <div class="gs-satir"><span>Manuel Nakit Çıkış</span><span>${paraFormat(g.manuelNakitCikis)}</span></div>
-          <div class="gs-satir gs-vurgu"><span>Beklenen Nakit</span><span>${paraFormat(g.beklenenNakit)}</span></div>
-          <div class="gs-satir gs-vurgu"><span>Sayılan Nakit</span><span>${paraFormat(g.sayilanNakit)}</span></div>
-          <div class="gs-satir gs-vurgu" style="color:${g.fark === 0 ? "var(--renk-yesil)" : "var(--renk-kirmizi)"}"><span>Fark</span><span>${paraFormat(g.fark)}</span></div>
-        </div>
-        <p style="font-size:12px;color:var(--renk-yazi-soluk);">Kapatan: ${escapeHtml(g.kapatanKullanici || "")} · ${tarihFormat(g.kapanmaZamani)}</p>
-      </div>`;
-    document.body.appendChild(katman);
-    katman.querySelector(".modal-kapat").addEventListener("click", () => katman.remove());
-    katman.addEventListener("click", (e) => { if (e.target === katman) katman.remove(); });
-    return;
-  }
-
-  const nakitSatis = adisyonlarBugunCache.filter((a) => a.odemeYontemi === "nakit").reduce((acc, a) => acc + Number(a.toplamTutar || 0), 0);
-  const kartSatis = adisyonlarBugunCache.filter((a) => a.odemeYontemi === "kart").reduce((acc, a) => acc + Number(a.toplamTutar || 0), 0);
-  const manuelGiris = kasaHareketleriBugunCache.filter((k) => k.tur === "nakit_giris").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
-  const manuelCikis = kasaHareketleriBugunCache.filter((k) => k.tur === "nakit_cikis").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
+  const nakitSatis = vardiyaAdisyonlari().filter((a) => a.odemeYontemi === "nakit").reduce((acc, a) => acc + Number(a.toplamTutar || 0), 0);
+  const kartSatis = vardiyaAdisyonlari().filter((a) => a.odemeYontemi === "kart").reduce((acc, a) => acc + Number(a.toplamTutar || 0), 0);
+  const manuelGiris = vardiyaKasaHareketleri().filter((k) => k.tur === "nakit_giris").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
+  const manuelCikis = vardiyaKasaHareketleri().filter((k) => k.tur === "nakit_cikis").reduce((acc, k) => acc + Number(k.tutar || 0), 0);
   const devir = Number(subeDokumani?.sonKasaDevri) || 0;
   const beklenenNakit = Math.round((devir + nakitSatis + manuelGiris - manuelCikis) * 100) / 100;
 
@@ -500,16 +502,18 @@ function gunSonuModaliGoster() {
     <div class="modal-kutu" style="position:relative;">
       <button class="modal-kapat">&times;</button>
       <h2>🌙 Gün Sonu — Kasa Sayımı</h2>
+      <p style="font-size:12px;color:var(--renk-yazi-soluk);margin-top:-8px;">Bu vardiyada (son kapanıştan bu yana) birikmiş hareketler.</p>
       <div class="gun-sonu-ozet">
-        <div class="gs-satir"><span>Devir (dünden)</span><span>${paraFormat(devir)}</span></div>
-        <div class="gs-satir"><span>Bugünkü Nakit Satış</span><span>${paraFormat(nakitSatis)}</span></div>
-        <div class="gs-satir"><span>Bugünkü Kart Satış</span><span>${paraFormat(kartSatis)}</span></div>
+        <div class="gs-satir"><span>Devir (önceki vardiyadan)</span><span>${paraFormat(devir)}</span></div>
+        <div class="gs-satir"><span>Bu Vardiya Nakit Satış</span><span>${paraFormat(nakitSatis)}</span></div>
+        <div class="gs-satir"><span>Bu Vardiya Kart Satış</span><span>${paraFormat(kartSatis)}</span></div>
         <div class="gs-satir"><span>Manuel Nakit Giriş</span><span>${paraFormat(manuelGiris)}</span></div>
         <div class="gs-satir"><span>Manuel Nakit Çıkış</span><span>${paraFormat(manuelCikis)}</span></div>
         <div class="gs-satir gs-vurgu"><span>Beklenen Nakit (kasada olması gereken)</span><span>${paraFormat(beklenenNakit)}</span></div>
       </div>
       <div class="form-alan"><label>Sayılan Nakit Tutar (fiilen kasada sayılan)</label><input id="sayilan-tutar" type="number" step="0.01" min="0" required /></div>
-      <button id="gun-sonu-kapat-buton" class="btn-birincil btn-tam">Gün Sonunu Kapat</button>
+      <button id="gun-sonu-kapat-buton" class="btn-birincil btn-tam">Gün Sonunu Kapat ve Merkeze Gönder</button>
+      <p style="font-size:11px;color:var(--renk-yazi-soluk);margin-top:8px;">Gönderdikten sonra bu vardiyanın kaydı üzerinde değişiklik yapılamaz.</p>
     </div>`;
   document.body.appendChild(katman);
   katman.querySelector(".modal-kapat").addEventListener("click", () => katman.remove());
@@ -520,7 +524,7 @@ function gunSonuModaliGoster() {
     const sayilan = Number(sayilanInput.value);
     if (!(sayilan >= 0)) { bildirimGoster("Geçerli bir tutar girin.", "uyari"); return; }
     const fark = Math.round((sayilan - beklenenNakit) * 100) / 100;
-    if (!confirm(`Gün sonu kapatılacak.\n\nBeklenen: ${paraFormat(beklenenNakit)}\nSayılan: ${paraFormat(sayilan)}\nFark: ${paraFormat(fark)}\n\nDevam edilsin mi? Bu işlem geri alınamaz.`)) return;
+    if (!confirm(`Vardiya kapatılıp merkeze gönderilecek.\n\nBeklenen: ${paraFormat(beklenenNakit)}\nSayılan: ${paraFormat(sayilan)}\nFark: ${paraFormat(fark)}\n\nGönderdikten sonra bu kayıt üzerinde değişiklik yapılamaz. Devam edilsin mi?`)) return;
     const buton = katman.querySelector("#gun-sonu-kapat-buton");
     buton.disabled = true;
     try {
@@ -540,8 +544,12 @@ function gunSonuModaliGoster() {
         kapatanKullaniciId: auth.currentUser?.uid || null,
         kapanmaZamani: serverTimestamp(),
       });
-      await updateDoc(doc(db, "subeler", kullanici.subeId), { sonKasaDevri: sayilan, sonGunSonuTarihi: tarihAnahtari() });
-      bildirimGoster("Gün sonu kapatıldı. Oturum kapatılıyor, yeni gelen personel kendi şifresiyle giriş yapmalı...", "basari");
+      await updateDoc(doc(db, "subeler", kullanici.subeId), {
+        sonKasaDevri: sayilan,
+        sonGunSonuZamani: serverTimestamp(),
+        sonGunSonuTarihi: tarihAnahtari(),
+      });
+      bildirimGoster("Vardiya kapatıldı ve merkeze gönderildi. Oturum kapatılıyor, yeni gelen personel kendi şifresiyle giriş yapmalı...", "basari");
       katman.remove();
       // Gün sonu kapandıktan sonra terminal yeniden kullanılabilir olmamalı —
       // her gelen personel adisyon hesabını kendi şifresiyle devralmalı.

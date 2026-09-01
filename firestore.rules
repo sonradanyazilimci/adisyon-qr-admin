@@ -95,6 +95,12 @@ service cloud.firestore {
     match /subeler/{id} {
       allow read: if true;
       allow write: if rol('admin');
+      // Kasa, vardiya ("gün sonu") kapatırken kasa devrini ilerletebilmeli —
+      // SADECE bu üç alanı değiştirebilir, şubenin adı/adresi gibi diğer
+      // bilgilerine dokunamaz. (Bu kural olmadan kasa'nın gün sonu kapatma
+      // işlemi "izin yok" hatasıyla yarıda kesiliyor, kasa devri hiç
+      // ilerlemiyor ve oturum zorunlu çıkışı da hiç tetiklenmiyordu.)
+      allow update: if rol('kasa') && sadeceAlanlar(['sonKasaDevri', 'sonGunSonuZamani', 'sonGunSonuTarihi']);
     }
 
     // Kategoriler — herkes okuyabilir (QR menü dahil), sadece admin yazar
