@@ -4,6 +4,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { sayfaKorumaBaslat, cikisYap } from "../../shared/auth.js";
 import { siparisOlustur, siparisiOnayla, siparisiGuncelle, siparisiIptalEt } from "../../shared/siparis.js";
+import { mutfakFisiYazdir, musteriFisiYazdir } from "../../shared/fis.js";
 import {
   paraFormat, escapeHtml, tarihFormat, saatFormat, tarihAnahtari, bildirimGoster, debounce,
   MASA_DURUMLARI, SIPARIS_DURUMLARI, ALERJEN_LISTESI, kategorilerSirali, kategoriVeAltlariIds, temaBaslat,
@@ -53,6 +54,9 @@ let puantajTumKayitlarCache = []; // şubenin TÜM puantaj kayıtları (tarihe g
 let kasaHareketleriTumCache = [];
 let adisyonlarTumCache = [];
 let subeDokumani = null;
+// Müşteri fişinin üst kısmında görünen işletme bilgileri (admin > Ayarlar'da
+// girilir) — bir kez yüklenip fiş yazdırılırken kullanılır.
+let isletmeBilgisi = {};
 // Ana içerik artık sekmeli: 'masalar' | 'puantaj' | 'kasahareket'
 let aktifSekme = "masalar";
 // Puantaj sekmesinde görüntülenen tarih — varsayılan bugün, ama geçmiş
@@ -112,6 +116,9 @@ async function baslat() {
     if (subeSnap.exists()) subeAdi = subeSnap.data().ad;
   }
   document.getElementById("kasa-alt-baslik").textContent = subeAdi;
+
+  const isletmeSnap = await getDoc(doc(db, "ayarlar", "genel"));
+  if (isletmeSnap.exists()) isletmeBilgisi = isletmeSnap.data();
 
   const masalarQuery = kullanici.subeId
     ? query(collection(db, "masalar"), where("subeId", "==", kullanici.subeId))
@@ -938,6 +945,8 @@ function renderDetay() {
     b.disabled = true;
     try {
       await siparisiOnayla(b.dataset.siparis);
+      const onaylanan = acikSiparisler.find((s) => s.id === b.dataset.siparis);
+      if (onaylanan) mutfakFisiYazdir({ masaAd: onaylanan.masaAd || masa.ad, gonderenAdi: kullanici.ad, urunler: onaylanan.urunler || [] });
       bildirimGoster("Sipariş onaylandı, mutfağa düştü.", "basari");
     } catch (err) {
       bildirimGoster("Hata: " + err.message, "hata");
@@ -1417,6 +1426,8 @@ async function siparisGonder(katman) {
       garsonId: auth.currentUser?.uid || null,
       garsonAdi: kullanici.ad,
     });
+    const masaAd = masalarCache.find((m) => m.id === seciliMasaId)?.ad || "";
+    mutfakFisiYazdir({ masaAd, gonderenAdi: kullanici.ad, urunler: sepet.map((s) => ({ ad: s.ad, adet: s.adet, not: s.not })) });
     sepet = [];
     sepetYaz();
     bildirimGoster("Sipariş gönderildi!", "basari");
@@ -1430,25 +1441,19 @@ async function siparisGonder(katman) {
 }
 
 function fisYazdir(masa, siparisler, toplam) {
-  const fisEl = document.getElementById("fis-yazdirma");
-  fisEl.innerHTML = `
-    <h2>ADİSYON FİŞİ</h2>
-    <h3>${escapeHtml(masa.ad)}</h3>
-    <div class="cizgi"></div>
-    <table>
-      ${siparisler.flatMap((s) => (s.urunler || []).map((k) => `
-        <tr><td>${k.adet}x ${escapeHtml(k.ad)}</td><td style="text-align:right;">${paraFormat(k.tutar ?? k.adet * k.fiyat)}</td></tr>
-      `)).join("")}
-    </table>
-    <div class="cizgi"></div>
-    <table><tr><td><b>TOPLAM</b></td><td style="text-align:right;"><b>${paraFormat(toplam)}</b></td></tr></table>
-    <div class="cizgi"></div>
-    ${odemeSatirlari.map((o) => `
-    <p style="text-align:center;font-size:12px;">Ödeme: ${ODEME_YONTEMI_ETIKET[o.yontem]}${o.yontem === "yemek_ceki" ? ` (${escapeHtml(o.marka || "")})` : ""} — ${paraFormat(o.tutar)}</p>`).join("")}
-    <p style="text-align:center;font-size:12px;">${new Date().toLocaleString("tr-TR")}</p>
-    <p style="text-align:center;font-size:12px;">Afiyet olsun, bizi tercih ettiğiniz için teşekkürler!</p>
-  `;
-  window.print();
+  musteriFisiYazdir({
+    isletmeAdi: isletmeBilgisi.isletmeAdi,
+    subeAdi: subeDokumani?.ad || "",
+    subeAdres: subeDokumani?.adres || "",
+    subeTelefon: subeDokumani?.telefon || "",
+    vergiDairesi: isletmeBilgisi.vergiDairesi,
+    vergiNo: isletmeBilgisi.vergiNo,
+    masaAd: masa.ad,
+    kalemler: siparisler.flatMap((s) => s.urunler || []),
+    toplam,
+    odemeSatirlari,
+    kapananKullanici: kullanici.ad,
+  });
 }
 
 async function hesabiKapat(masa, siparisler, toplam) {
@@ -1492,6 +1497,9 @@ async function hesabiKapat(masa, siparisler, toplam) {
     await Promise.all(siparisler.map((s) => updateDoc(doc(db, "siparisler", s.id), { durum: "kapandi" })));
     await updateDoc(doc(db, "masalar", masa.id), { durum: "bos", garsonCagirildi: false });
     bildirimGoster("Hesap kapatıldı.", "basari");
+    // Ödeme sırasında müşteri fişi otomatik yazdırılır (gerekirse "Fiş
+    // Yazdır" ile ayrıca yeniden basılabilir).
+    fisYazdir(masa, siparisler, toplam);
     seciliMasaId = null;
     odemeSatirlari = [];
     renderMasalar();

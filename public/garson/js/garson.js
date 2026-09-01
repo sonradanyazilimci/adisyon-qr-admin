@@ -4,6 +4,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { siparisOlustur, siparisiOnayla, siparisiGuncelle, siparisiIptalEt } from "../../shared/siparis.js";
 import { sayfaKorumaBaslat, cikisYap } from "../../shared/auth.js";
+import { mutfakFisiYazdir } from "../../shared/fis.js";
 import {
   paraFormat, escapeHtml, alerjenRozetleriHtml, bildirimGoster, debounce, MASA_DURUMLARI,
   SIPARIS_DURUMLARI, tarihFormat, kategorilerSirali, kategoriVeAltlariIds, temaBaslat,
@@ -203,6 +204,8 @@ function renderMevcutSiparisler() {
     b.disabled = true;
     try {
       await siparisiOnayla(b.dataset.siparis);
+      const onaylanan = siparisler.find((s) => s.id === b.dataset.siparis);
+      if (onaylanan) mutfakFisiYazdir({ masaAd: onaylanan.masaAd || seciliMasa?.ad, gonderenAdi: kullanici.ad, urunler: onaylanan.urunler || [] });
       bildirimGoster("Sipariş onaylandı, mutfağa düştü.", "basari");
     } catch (err) {
       bildirimGoster("Hata: " + err.message, "hata");
@@ -462,6 +465,7 @@ async function siparisGonder(katman) {
       garsonId: auth.currentUser?.uid || null,
       garsonAdi: kullanici.ad,
     });
+    mutfakFisiYazdir({ masaAd: seciliMasa.ad, gonderenAdi: kullanici.ad, urunler: sepet.map((s) => ({ ad: s.ad, adet: s.adet, not: s.not })) });
     sepet = [];
     sepetYaz();
     bildirimGoster("Sipariş gönderildi!", "basari");

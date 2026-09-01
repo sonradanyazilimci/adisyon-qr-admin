@@ -173,11 +173,8 @@ body { background: var(--renk-arkaplan); }
   background: var(--renk-kart); font-size: 11px; padding: 0; display: flex; align-items: center; justify-content: center;
 }
 
-#fis-yazdirma { padding: 20px; font-family: monospace; background: #fff; color: #000; }
-#fis-yazdirma h2, #fis-yazdirma h3 { text-align: center; margin: 4px 0; }
-#fis-yazdirma table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
-#fis-yazdirma td { padding: 3px 0; }
-#fis-yazdirma .cizgi { border-top: 1px dashed #000; margin: 8px 0; }
+/* #fis-yazdirma / .fis-* → public/shared/common.css'e taşındı (garson ve
+   mutfak fişleri de aynı sınıfları kullanıyor, tek yerden yönetiliyor). */
 
 @media (max-width: 800px) {
   .adisyon-govde { flex-direction: column; }

@@ -1,10 +1,11 @@
 import { db } from "../../shared/firebase-config.js";
 import {
-  collection, doc, writeBatch, serverTimestamp,
+  collection, doc, getDoc, setDoc, writeBatch, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { bildirimGoster } from "../../shared/utils.js";
 
 const demoButon = document.getElementById("demo-veri-buton");
+const isletmeFormEl = document.getElementById("isletme-bilgi-form");
 
 export function baslat() {
   demoButon.addEventListener("click", async () => {
@@ -18,6 +19,34 @@ export function baslat() {
       bildirimGoster("Hata: " + err.message, "hata");
     } finally {
       demoButon.disabled = false;
+    }
+  });
+
+  getDoc(doc(db, "ayarlar", "genel")).then((snap) => {
+    if (!snap.exists()) return;
+    const v = snap.data();
+    isletmeFormEl.elements.isletmeAdi.value = v.isletmeAdi || "";
+    isletmeFormEl.elements.vergiDairesi.value = v.vergiDairesi || "";
+    isletmeFormEl.elements.vergiNo.value = v.vergiNo || "";
+  });
+
+  isletmeFormEl.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const gonderButon = e.target.querySelector('button[type="submit"]');
+    gonderButon.disabled = true;
+    try {
+      const fd = new FormData(e.target);
+      await setDoc(doc(db, "ayarlar", "genel"), {
+        isletmeAdi: fd.get("isletmeAdi").trim(),
+        vergiDairesi: fd.get("vergiDairesi").trim(),
+        vergiNo: fd.get("vergiNo").trim(),
+        guncellemeZamani: serverTimestamp(),
+      }, { merge: true });
+      bildirimGoster("İşletme bilgileri kaydedildi.", "basari");
+    } catch (err) {
+      bildirimGoster("Hata: " + err.message, "hata");
+    } finally {
+      gonderButon.disabled = false;
     }
   });
 }

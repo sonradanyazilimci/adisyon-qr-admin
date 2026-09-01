@@ -211,3 +211,39 @@ label { font-size: 13px; font-weight: 600; color: var(--renk-yazi-soluk); displa
   .yazdirilacak { position: absolute; top: 0; left: 0; width: 100%; }
   .yazdirma-gizle { display: none !important; }
 }
+
+/* ── Fişler (müşteri fişi / mutfak fişi) ──────────────────────────────────
+   Termal fiş yazıcılarına (58/80mm) uygun dar, sade, monospace bir düzen —
+   ekranda önizleme olarak da (isteğe bağlı) okunur, ama asıl amaç "Fiş
+   Yazdır" ile doğrudan yazıcıya gönderilecek şekilde hazır olması. Sayfanın
+   geri kalanı @media print kuralıyla zaten gizleniyor (bkz. yukarısı),
+   burada sadece fişin KENDİ biçimi tanımlanır. */
+#fis-yazdirma {
+  max-width: 320px; margin: 0 auto; padding: 14px;
+  font-family: "Courier New", "Consolas", monospace; background: #fff; color: #000;
+}
+.fis-govde h2 { text-align: center; margin: 0 0 2px; font-size: 16px; letter-spacing: .03em; }
+.fis-govde h3 { text-align: center; margin: 6px 0 2px; font-size: 14px; }
+.fis-meta { text-align: center; margin: 1px 0; font-size: 11px; }
+.fis-cizgi { border-top: 1px dashed #000; margin: 8px 0; }
+.fis-tablo { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.fis-tablo td { padding: 3px 0; vertical-align: top; }
+.fis-tablo .fis-adet { width: 34px; font-weight: 700; }
+.fis-tablo .fis-sag { text-align: right; white-space: nowrap; }
+.fis-not { font-size: 11px; font-style: italic; }
+.fis-odeme { margin: 2px 0; font-size: 12.5px; display: flex; justify-content: space-between; }
+.fis-tesekkur { text-align: center; font-size: 11px; margin-top: 10px; }
+/* Mutfak fişi (KOT) — hızlı okunması gerektiği için daha büyük/kalın yazı. */
+.fis-mutfak .fis-tablo { font-size: 15px; font-weight: 700; }
+.fis-mutfak .fis-adet { width: 40px; font-size: 16px; }
+.fis-mutfak .fis-not { font-size: 12.5px; font-weight: 600; }
+
+@media print {
+  @page { margin: 4mm; }
+  /* #fis-yazdirma sayfa yüklendiğinde ekranda hiç yer kaplamasın diye
+     inline style="display:none" ile gizli tutulur (fiş yazdırılana kadar
+     boş bir kutu görünmesin). Yazdırma anında bu satırla YENİDEN
+     görünür kılınmazsa .yazdirilacak/visibility kuralları hiçbir işe
+     yaramaz — display:none her zaman kazanır ve çıktı TAMAMEN BOŞ basılır. */
+  #fis-yazdirma { display: block !important; max-width: 100%; padding: 0; }
+}
