@@ -15,6 +15,7 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
   font-weight: 800; font-size: 14px; border: 2px solid transparent; position: relative;
 }
 .masa-kart-mini .durum { font-size: 11px; font-weight: 700; margin-top: 4px; }
+.masa-kart-mini.secili { outline: 3px solid var(--renk-ana); outline-offset: 1px; }
 .masa-kart-mini.dolu { border-color: #e67e22; }
 .masa-kart-mini.odeme_bekliyor { border-color: #c0392b; }
 .masa-kart-mini.cagirdi::after {

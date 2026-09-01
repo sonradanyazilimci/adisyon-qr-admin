@@ -73,7 +73,10 @@
       </section>
 
       <section id="sekme-personel" class="sekme-icerik" hidden>
-        <div class="sekme-eylemler"><button id="personel-ekle-buton" class="btn-birincil">+ Yeni Personel</button></div>
+        <div class="sekme-eylemler">
+          <button id="personel-ekle-buton" class="btn-birincil">+ Yeni Personel</button>
+          <select id="personel-sube-filtre" style="max-width:220px;"></select>
+        </div>
         <div id="personel-liste" class="liste-alani"></div>
       </section>
 
@@ -102,13 +105,17 @@
           <select id="muhasebe-sube"></select>
         </div>
         <div id="muhasebe-ozet" class="panel-kart-grid"></div>
+        <div id="muhasebe-sube-ozet-kart" class="kart" style="margin-bottom:16px;" hidden>
+          <h3>🏬 Şube Bazında Özet (Merkezi Muhasebe)</h3>
+          <div id="muhasebe-sube-ozet"></div>
+        </div>
         <div class="kart" style="margin-bottom:16px;">
           <h3>Gün Sonu Kapanışları</h3>
-          <div id="muhasebe-gunsonu-liste" class="liste-alani"></div>
+          <div id="muhasebe-gunsonu-liste"></div>
         </div>
         <div class="kart">
           <h3>Manuel Kasa Hareketleri</h3>
-          <div id="muhasebe-hareket-liste" class="liste-alani"></div>
+          <div id="muhasebe-hareket-liste"></div>
         </div>
       </section>
 

@@ -242,3 +242,19 @@ export function kategoriVeAltlariIds(kategoriId, kategorilerCache) {
   const altlar = kategorilerCache.filter((k) => k.ustKategoriId === kategoriId).map((k) => k.id);
   return [kategoriId, ...altlar];
 }
+
+// ── Şubeye özel ürün ayarları ────────────────────────────────────────────
+// Bir ürün varsayılan olarak TÜM şubelerde aynıdır (aktif + tek fiyat) —
+// zincirin çoğu ürünü için ekstra veri girmeye gerek yok. `subeAyarlari`
+// alanı SADECE farklılık olan şubeler için { aktif?, fiyat? } tutar (admin
+// panelinde girildiği şekilde), diğer şubelerde genel ayar geçerlidir.
+export function urunSubedeAktifMi(urun, subeId) {
+  if (urun.aktif === false) return false; // genel pasifse hiçbir şubede görünmez
+  const ozel = subeId ? urun.subeAyarlari?.[subeId] : null;
+  return !ozel || ozel.aktif !== false;
+}
+
+export function urunSubeFiyati(urun, subeId) {
+  const ozel = subeId ? urun.subeAyarlari?.[subeId] : null;
+  return typeof ozel?.fiyat === "number" ? ozel.fiyat : Number(urun.fiyat) || 0;
+}

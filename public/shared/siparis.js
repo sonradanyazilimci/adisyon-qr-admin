@@ -25,13 +25,19 @@ import { db } from "./firebase-config.js";
 import {
   doc, getDoc, setDoc, collection, runTransaction, serverTimestamp, updateDoc,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { urunSubedeAktifMi, urunSubeFiyati } from "./utils.js";
 
 function paraYuvarla(n) {
   return Math.round(n * 100) / 100;
 }
 
-/** Girdi listesinden (urunId+adet+not) fiyat/ad snapshot'lı sipariş kalemleri üretir. */
-async function kalemleriOlustur(urunlerGirdi) {
+/**
+ * Girdi listesinden (urunId+adet+not) fiyat/ad snapshot'lı sipariş kalemleri
+ * üretir. `subeId` verilirse ürünün o şubeye özel aktiflik/fiyat ayarı
+ * (bkz. shared/utils.js urunSubedeAktifMi/urunSubeFiyati) uygulanır — aynı
+ * ürün bir şubede satılmıyor olabilir veya farklı fiyatlanabilir.
+ */
+async function kalemleriOlustur(urunlerGirdi, subeId = null) {
   if (!Array.isArray(urunlerGirdi) || urunlerGirdi.length === 0) {
     throw new Error("Sepet boş olamaz.");
   }
@@ -46,9 +52,9 @@ async function kalemleriOlustur(urunlerGirdi) {
     const istek = urunlerGirdi[i];
     if (!snap.exists()) throw new Error(`Ürün bulunamadı: ${istek.urunId}`);
     const urun = snap.data();
-    if (urun.aktif === false) throw new Error(`"${urun.ad}" şu anda menüde aktif değil.`);
+    if (!urunSubedeAktifMi(urun, subeId)) throw new Error(`"${urun.ad}" bu şubede menüde aktif değil.`);
     const adet = Number(istek.adet);
-    const fiyat = Number(urun.fiyat) || 0;
+    const fiyat = urunSubeFiyati(urun, subeId);
     siparisKalemleri.push({
       urunId: istek.urunId,
       ad: urun.ad,
@@ -166,7 +172,7 @@ async function masaBul(masaId) {
 export async function siparisOlustur({ masaId, urunler, garsonId = null, garsonAdi = "Müşteri (QR Menü)" }) {
   if (!masaId || typeof masaId !== "string") throw new Error("Masa bilgisi eksik.");
   const { masaRef, masa } = await masaBul(masaId);
-  const siparisKalemleri = await kalemleriOlustur(urunler);
+  const siparisKalemleri = await kalemleriOlustur(urunler, masa.subeId || null);
   const siparisRef = doc(collection(db, "siparisler"));
 
   await stokFarkiUygulaVeKaydet({
@@ -192,7 +198,7 @@ export async function siparisOlustur({ masaId, urunler, garsonId = null, garsonA
 export async function siparisTaslakOlustur({ masaId, urunler, garsonAdi = "Müşteri (QR Menü)" }) {
   if (!masaId || typeof masaId !== "string") throw new Error("Masa bilgisi eksik.");
   const { masaRef, masa } = await masaBul(masaId);
-  const siparisKalemleri = await kalemleriOlustur(urunler);
+  const siparisKalemleri = await kalemleriOlustur(urunler, masa.subeId || null);
   const siparisRef = doc(collection(db, "siparisler"));
 
   await setDoc(siparisRef, {
@@ -243,7 +249,7 @@ export async function siparisiGuncelle(siparisId, yeniKalemlerGirdi) {
   if (!["onay_bekliyor", "yeni"].includes(s.durum)) {
     throw new Error("Bu sipariş artık düzenlenemez (hazırlanmaya başlanmış).");
   }
-  const siparisKalemleri = await kalemleriOlustur(yeniKalemlerGirdi);
+  const siparisKalemleri = await kalemleriOlustur(yeniKalemlerGirdi, s.subeId || null);
 
   // KRİTİK: Sipariş henüz onaylanmadıysa (stokDusuldu==false) stoğa HİÇ
   // dokunulmaz — sadece ürün listesi güncellenir. Stok, ancak onaylanmış

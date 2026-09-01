@@ -7,6 +7,7 @@ import { sayfaKorumaBaslat, cikisYap } from "../../shared/auth.js";
 import {
   paraFormat, escapeHtml, alerjenRozetleriHtml, bildirimGoster, debounce, MASA_DURUMLARI,
   SIPARIS_DURUMLARI, tarihFormat, kategorilerSirali, kategoriVeAltlariIds, temaBaslat,
+  urunSubedeAktifMi, urunSubeFiyati,
 } from "../../shared/utils.js";
 
 temaBaslat();
@@ -57,7 +58,7 @@ async function baslat() {
   });
 
   onSnapshot(query(collection(db, "urunler")), (snap) => {
-    urunlerCache = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => u.aktif !== false);
+    urunlerCache = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => urunSubedeAktifMi(u, kullanici.subeId));
     renderUrunler();
   });
 
@@ -91,6 +92,7 @@ async function baslat() {
     document.getElementById("siparis-alani").hidden = true;
     document.getElementById("sepet-bar").hidden = true;
     document.getElementById("mevcut-siparisler").innerHTML = "";
+    renderMasalar();
   });
   document.getElementById("arama-input").addEventListener("input", debounce((e) => { aramaMetni = e.target.value.toLowerCase(); renderUrunler(); }, 200));
   document.getElementById("sepet-bar").addEventListener("click", sepetModalGoster);
@@ -118,8 +120,9 @@ function renderMasalar() {
     const hazirSiparisVar = acikSiparisler.some((s) => s.durum === "hazir");
     const onayBekliyorVar = acikSiparisler.some((s) => s.durum === "onay_bekliyor");
     const benimMasam = m.sorumluGarsonId && m.sorumluGarsonId === auth.currentUser?.uid;
+    const seciliMi = seciliMasa && m.id === seciliMasa.id;
     return `
-    <div class="masa-kart-mini ${m.durum || "bos"} ${m.garsonCagirildi ? "cagirdi" : ""} ${yeniSiparisVar ? "yeni-siparis" : ""} ${hazirSiparisVar ? "hazir-siparis" : ""} ${onayBekliyorVar ? "onay-bekliyor" : ""}" data-masa="${m.id}">
+    <div class="masa-kart-mini ${m.durum || "bos"} ${seciliMi ? "secili" : ""} ${m.garsonCagirildi ? "cagirdi" : ""} ${yeniSiparisVar ? "yeni-siparis" : ""} ${hazirSiparisVar ? "hazir-siparis" : ""} ${onayBekliyorVar ? "onay-bekliyor" : ""}" data-masa="${m.id}">
       ${benimMasam ? `<span class="benim-masam-etiketi">👤</span>` : ""}
       ${escapeHtml(m.ad)}
       <div class="durum" style="color:${(MASA_DURUMLARI[m.durum] || MASA_DURUMLARI.bos).renk}">${(MASA_DURUMLARI[m.durum] || MASA_DURUMLARI.bos).etiket}</div>
@@ -136,6 +139,7 @@ function masaSec(masaId) {
   sepet = sepetOku();
   document.getElementById("secili-masa-baslik").textContent = seciliMasa.ad;
   document.getElementById("siparis-alani").hidden = false;
+  renderMasalar();
   renderMevcutSiparisler();
   sepetBarGuncelle();
   document.getElementById("siparis-alani").scrollIntoView({ behavior: "smooth" });
@@ -253,7 +257,7 @@ function duzenlemeModaliGoster(siparis) {
     icerikEl.querySelector("#duzenle-urun-ekle-buton").addEventListener("click", () => {
       duzenlemeUrunSeciciGoster((urun) => {
         const mevcut = kalemler.find((k) => k.urunId === urun.id && !k.not);
-        if (mevcut) mevcut.adet += 1; else kalemler.push({ urunId: urun.id, ad: urun.ad, fiyat: urun.fiyat, adet: 1, not: "" });
+        if (mevcut) mevcut.adet += 1; else kalemler.push({ urunId: urun.id, ad: urun.ad, fiyat: urunSubeFiyati(urun, kullanici.subeId), adet: 1, not: "" });
         icerikEl.innerHTML = icerik();
         bagla();
       });
@@ -296,7 +300,7 @@ function duzenlemeUrunSeciciGoster(secilinceCallback) {
     const liste = urunlerCache.filter((u) => !filtre || u.ad?.toLowerCase().includes(filtre));
     el.innerHTML = liste.map((u) => `
       <div class="liste-satir" data-urun="${u.id}" style="cursor:pointer;">
-        <div class="ana-bilgi"><strong>${escapeHtml(u.ad)}</strong><span>${paraFormat(u.fiyat)}</span></div>
+        <div class="ana-bilgi"><strong>${escapeHtml(u.ad)}</strong><span>${paraFormat(urunSubeFiyati(u, kullanici.subeId))}</span></div>
       </div>`).join("");
     el.querySelectorAll("[data-urun]").forEach((satir) => satir.addEventListener("click", () => {
       secilinceCallback(urunlerCache.find((u) => u.id === satir.dataset.urun));
@@ -362,7 +366,7 @@ function renderUrunler() {
       <img src="${u.gorselUrl || "https://placehold.co/300x300?text=%F0%9F%8D%BD"}" alt="" loading="lazy" />
       <div class="ukk-govde">
         <h3>${escapeHtml(u.ad)}</h3>
-        <span class="fiyat">${paraFormat(u.fiyat)}</span>
+        <span class="fiyat">${paraFormat(urunSubeFiyati(u, kullanici.subeId))}</span>
         <div class="ukk-rozet">${u.kalori ?? "-"} kcal ${alerjenRozetleriHtml(u.alerjenler, u.glutensiz)}</div>
       </div>
     </div>`).join("");
@@ -375,13 +379,14 @@ function renderUrunler() {
 
 function urunEkleModali(urun) {
   let adet = 1;
+  const fiyat = urunSubeFiyati(urun, kullanici.subeId);
   const katman = document.createElement("div");
   katman.className = "alt-sayfa-katman";
   katman.innerHTML = `
     <div class="alt-sayfa">
       <div class="alt-sayfa-tutamac"></div>
       <h2>${escapeHtml(urun.ad)}</h2>
-      <div class="detay-fiyat">${paraFormat(urun.fiyat)}</div>
+      <div class="detay-fiyat">${paraFormat(fiyat)}</div>
       <div class="form-alan"><label>Not (opsiyonel)</label><input id="detay-not" placeholder="Örn: az pişmiş, soğansız" /></div>
       <div class="adet-secici">
         <button id="detay-eksi">−</button><span id="detay-adet">1</span><button id="detay-arti">+</button>
@@ -396,7 +401,7 @@ function urunEkleModali(urun) {
   katman.querySelector("#detay-sepete-ekle").addEventListener("click", () => {
     const not = katman.querySelector("#detay-not").value.trim();
     const mevcut = sepet.find((s) => s.urunId === urun.id && s.not === not);
-    if (mevcut) mevcut.adet += adet; else sepet.push({ urunId: urun.id, ad: urun.ad, fiyat: urun.fiyat, adet, not });
+    if (mevcut) mevcut.adet += adet; else sepet.push({ urunId: urun.id, ad: urun.ad, fiyat, adet, not });
     sepetYaz();
     katman.remove();
   });

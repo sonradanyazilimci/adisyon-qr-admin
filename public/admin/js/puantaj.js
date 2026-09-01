@@ -51,10 +51,9 @@ function render() {
   const tamamlanmamis = liste.filter((p) => !p.cikisZamani).length;
 
   ozetEl.innerHTML = `
-    <div class="panel-kart"><div class="etiket">Toplam Vardiya Kaydı</div><div class="deger">${toplamKayit}</div></div>
-    <div class="panel-kart"><div class="etiket">Geç Gelen</div><div class="deger" style="color:#e67e22;">${gecGelenSayisi}</div></div>
-    <div class="panel-kart"><div class="etiket">Erken Çıkan</div><div class="deger" style="color:#e67e22;">${erkenCikanSayisi}</div></div>
-    <div class="panel-kart"><div class="etiket">Hâlâ İşte (çıkış yapmadı)</div><div class="deger">${tamamlanmamis}</div></div>
+    <div class="panel-kart"><div class="etiket">Toplam Vardiya</div><div class="deger">${toplamKayit}</div></div>
+    <div class="panel-kart"><div class="etiket">Geç / Erken</div><div class="deger" style="color:#e67e22;">${gecGelenSayisi} / ${erkenCikanSayisi}</div></div>
+    <div class="panel-kart"><div class="etiket">Hâlâ İşte</div><div class="deger">${tamamlanmamis}</div></div>
   `;
 
   if (liste.length === 0) {
@@ -62,15 +61,22 @@ function render() {
     return;
   }
 
-  listeEl.innerHTML = liste.map((p) => `
-    <div class="liste-satir">
-      <div class="ana-bilgi">
-        <strong>${escapeHtml(p.personelAdi)} <span style="font-weight:400;color:var(--renk-yazi-soluk);">(${escapeHtml(p.rol)})</span></strong>
-        <span>${escapeHtml(p.subeAdi || "")} · ${tarihAnahtariniOku(p.tarih)}</span>
-      </div>
-      <div style="font-size:13px;">
-        Giriş: <b>${saatFormat(p.girisZamani)}</b>${p.gecGeldi ? ` <span class="rozet" style="background:#e67e22;">Geç</span>` : ""}
-        &nbsp;·&nbsp; Çıkış: <b>${p.cikisZamani ? saatFormat(p.cikisZamani) : "—"}</b>${p.erkenCikti ? ` <span class="rozet" style="background:#e67e22;">Erken</span>` : ""}
-      </div>
-    </div>`).join("");
+  // Sade, tek bakışta okunabilir bir tablo — kart yığını yerine (çok
+  // personel/gün olduğunda kartlar hızla karışıyordu).
+  listeEl.innerHTML = `
+    <div style="overflow-x:auto;">
+      <table class="veri-tablo">
+        <thead><tr><th>Personel</th><th>Şube</th><th>Tarih</th><th>Giriş</th><th>Çıkış</th></tr></thead>
+        <tbody>
+          ${liste.map((p) => `
+            <tr>
+              <td>${escapeHtml(p.personelAdi)} <span class="tablo-soluk">(${escapeHtml(p.rol)})</span></td>
+              <td>${escapeHtml(p.subeAdi || "—")}</td>
+              <td>${tarihAnahtariniOku(p.tarih)}</td>
+              <td>${saatFormat(p.girisZamani)}${p.gecGeldi ? ` <span class="rozet" style="background:#e67e22;">Geç</span>` : ""}</td>
+              <td>${p.cikisZamani ? saatFormat(p.cikisZamani) : "—"}${p.erkenCikti ? ` <span class="rozet" style="background:#e67e22;">Erken</span>` : ""}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
 }

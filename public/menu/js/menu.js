@@ -5,7 +5,7 @@ import {
 import { siparisTaslakOlustur, garsonCagir } from "../../shared/siparis.js";
 import {
   paraFormat, escapeHtml, alerjenRozetleriHtml, ALERJEN_LISTESI, bildirimGoster, debounce,
-  kategorilerSirali, kategoriVeAltlariIds, temaBaslat,
+  kategorilerSirali, kategoriVeAltlariIds, temaBaslat, urunSubedeAktifMi, urunSubeFiyati,
 } from "../../shared/utils.js";
 
 temaBaslat();
@@ -23,6 +23,7 @@ let aktifKategori = "";
 let aramaMetni = "";
 let masa = null;
 let sube = null;
+let subeIdEfektif = null; // ürünlerin şubeye özel aktiflik/fiyatını hesaplamak için
 
 /** localStorage'da masaya özel sepet: sepet_<masaId> */
 function sepetAnahtari() { return `sepet_${masaId}`; }
@@ -49,9 +50,9 @@ async function baslat() {
     }
     masa = { id: masaSnap.id, ...masaSnap.data() };
 
-    const subeId = subeIdParam || masa.subeId;
-    if (subeId) {
-      const subeSnap = await getDoc(doc(db, "subeler", subeId));
+    subeIdEfektif = subeIdParam || masa.subeId || null;
+    if (subeIdEfektif) {
+      const subeSnap = await getDoc(doc(db, "subeler", subeIdEfektif));
       if (subeSnap.exists()) sube = { id: subeSnap.id, ...subeSnap.data() };
     }
   } catch (err) {
@@ -76,7 +77,7 @@ async function baslat() {
   });
 
   onSnapshot(query(collection(db, "urunler")), (snap) => {
-    urunlerCache = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => u.aktif !== false);
+    urunlerCache = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => urunSubedeAktifMi(u, subeIdEfektif));
     renderUrunler();
   });
 
@@ -145,7 +146,7 @@ function urunSatiriHtml(u) {
         <h3>${escapeHtml(u.ad)}</h3>
         <p class="aciklama">${escapeHtml(u.aciklama || "")}</p>
         <div class="alt-satir">
-          <span class="fiyat">${paraFormat(u.fiyat)}</span>
+          <span class="fiyat">${paraFormat(urunSubeFiyati(u, subeIdEfektif))}</span>
           <span class="rozet-satir">${u.kalori ?? "-"} kcal ${alerjenRozetleriHtml(u.alerjenler, u.glutensiz)}</span>
         </div>
       </div>
@@ -156,6 +157,7 @@ function urunSatiriHtml(u) {
 function detayGoster(urun) {
   if (!urun) return;
   let adet = 1;
+  const fiyat = urunSubeFiyati(urun, subeIdEfektif);
   const katman = document.createElement("div");
   katman.className = "alt-sayfa-katman";
 
@@ -170,7 +172,7 @@ function detayGoster(urun) {
       <div class="alt-sayfa-tutamac"></div>
       <img class="detay-gorsel" src="${urun.gorselUrl || "https://placehold.co/500x300?text=%F0%9F%8D%BD"}" alt="${escapeHtml(urun.ad)}" />
       <h2>${escapeHtml(urun.ad)}</h2>
-      <div class="detay-fiyat">${paraFormat(urun.fiyat)}</div>
+      <div class="detay-fiyat">${paraFormat(fiyat)}</div>
       <div class="detay-bilgi-satir">
         <span class="detay-bilgi-rozet">🔥 ${urun.kalori ?? "-"} kcal</span>
         ${urun.glutensiz ? `<span class="detay-bilgi-rozet" style="color:var(--renk-yesil);border-color:var(--renk-yesil);">🚫🌾 Glutensiz</span>` : ""}
@@ -186,7 +188,7 @@ function detayGoster(urun) {
         <span id="detay-adet">1</span>
         <button id="detay-arti">+</button>
       </div>
-      <button id="detay-sepete-ekle" class="btn-birincil btn-tam">Sepete Ekle — ${paraFormat(urun.fiyat)}</button>
+      <button id="detay-sepete-ekle" class="btn-birincil btn-tam">Sepete Ekle — ${paraFormat(fiyat)}</button>
     </div>`;
   document.body.appendChild(katman);
   katman.addEventListener("click", (e) => { if (e.target === katman) katman.remove(); });
@@ -195,7 +197,7 @@ function detayGoster(urun) {
   const ekleButon = katman.querySelector("#detay-sepete-ekle");
   function fiyatGuncelle() {
     adetEl.textContent = adet;
-    ekleButon.textContent = `Sepete Ekle — ${paraFormat(urun.fiyat * adet)}`;
+    ekleButon.textContent = `Sepete Ekle — ${paraFormat(fiyat * adet)}`;
   }
   katman.querySelector("#detay-eksi").addEventListener("click", () => { if (adet > 1) { adet--; fiyatGuncelle(); } });
   katman.querySelector("#detay-arti").addEventListener("click", () => { adet++; fiyatGuncelle(); });
@@ -206,7 +208,7 @@ function detayGoster(urun) {
     if (mevcutSatir) {
       mevcutSatir.adet += adet;
     } else {
-      sepet.push({ urunId: urun.id, ad: urun.ad, fiyat: urun.fiyat, adet, not });
+      sepet.push({ urunId: urun.id, ad: urun.ad, fiyat, adet, not });
     }
     sepetYaz(sepet);
     bildirimGoster(`${urun.ad} sepete eklendi.`, "basari");

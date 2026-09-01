@@ -50,6 +50,15 @@
 .kritik-satir { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eef1f5; font-size: 14px; }
 .kritik-satir:last-child { border-bottom: none; }
 
+/* Sade veri tablosu — puantaj/muhasebe gibi tarih bazlı, satır sayısı çok
+   olabilen listeler için kart yığını yerine tek bakışta taranabilir tablo. */
+.veri-tablo { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
+.veri-tablo th { text-align: left; padding: 8px 12px; color: var(--renk-yazi-soluk); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; border-bottom: 2px solid var(--renk-kenar); }
+.veri-tablo td { padding: 9px 12px; border-bottom: 1px solid var(--renk-kenar); }
+.veri-tablo tbody tr:hover { background: var(--renk-ikincil-bg); }
+.veri-tablo tr.tablo-satir-iptal { opacity: .5; }
+.tablo-soluk { color: var(--renk-yazi-soluk); font-weight: 400; }
+
 .recete-satir { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .recete-satir select { flex: 2; }
 .recete-satir input { flex: 1; }
@@ -58,6 +67,14 @@
 .alerjen-secim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; margin-bottom: 14px; }
 .alerjen-secim-grid label { display: flex; align-items: center; gap: 6px; font-weight: 500; color: var(--renk-yazi); font-size: 13px; }
 .alerjen-secim-grid input { width: auto; }
+
+/* Ürün formunda şubeye özel aktiflik/fiyat ayarı — bir ürün bir şubede
+   satılmayabilir veya farklı fiyatlanabilir. */
+.sube-ayar-grid { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; border: 1px solid var(--renk-kenar); border-radius: 10px; padding: 10px 12px; }
+.sube-ayar-satir { display: flex; align-items: center; gap: 10px; }
+.sube-ayar-checkbox { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--renk-yazi); font-size: 13px; flex: 1; margin: 0; }
+.sube-ayar-checkbox input { width: auto; }
+.sube-ayar-fiyat { max-width: 130px; }
 
 .bar-satir { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .bar-satir .ad { width: 140px; font-size: 13px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

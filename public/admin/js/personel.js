@@ -12,6 +12,7 @@ function bildir() { dinleyiciler.forEach((cb) => cb(personelCache)); }
 
 const listeEl = document.getElementById("personel-liste");
 const ekleButon = document.getElementById("personel-ekle-buton");
+const subeFiltreEl = document.getElementById("personel-sube-filtre");
 
 const ROL_ETIKET = { admin: "Admin", garson: "Garson", kasa: "Kasa", mutfak: "Mutfak" };
 
@@ -25,8 +26,16 @@ export function baslat() {
     },
     snapshotHataYakala("personel")
   );
-  subelerDegisti(() => render());
+  subelerDegisti(() => { renderSubeFiltre(); render(); });
   ekleButon.addEventListener("click", () => formGoster());
+  subeFiltreEl.addEventListener("change", () => render());
+}
+
+function renderSubeFiltre() {
+  const secili = subeFiltreEl.value;
+  subeFiltreEl.innerHTML = `<option value="">Tüm Şubeler</option><option value="__merkez">Şubesiz (Admin)</option>` +
+    subelerCache.map((s) => `<option value="${s.id}">${escapeHtml(s.ad)}</option>`).join("");
+  subeFiltreEl.value = secili;
 }
 
 function subeAdi(id) {
@@ -39,7 +48,16 @@ function render() {
     listeEl.innerHTML = `<div class="bos-durum">Henüz personel eklenmedi.</div>`;
     return;
   }
-  const liste = personelCache.slice().sort((a, b) => (a.ad || "").localeCompare(b.ad || "", "tr"));
+  const subeFiltre = subeFiltreEl.value;
+  let filtreliListe = personelCache;
+  if (subeFiltre === "__merkez") filtreliListe = filtreliListe.filter((p) => !p.subeId);
+  else if (subeFiltre) filtreliListe = filtreliListe.filter((p) => p.subeId === subeFiltre);
+
+  if (filtreliListe.length === 0) {
+    listeEl.innerHTML = `<div class="bos-durum">Bu şubede personel bulunamadı.</div>`;
+    return;
+  }
+  const liste = filtreliListe.slice().sort((a, b) => (a.ad || "").localeCompare(b.ad || "", "tr"));
   listeEl.innerHTML = liste
     .map(
       (p) => `

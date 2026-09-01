@@ -1,12 +1,13 @@
 import { db, auth } from "../../shared/firebase-config.js";
 import {
-  collection, doc, getDoc, updateDoc, addDoc, onSnapshot, query, where, serverTimestamp,
+  collection, doc, getDoc, getDocs, updateDoc, addDoc, onSnapshot, query, where, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { sayfaKorumaBaslat, cikisYap } from "../../shared/auth.js";
 import { siparisOlustur, siparisiOnayla, siparisiGuncelle, siparisiIptalEt } from "../../shared/siparis.js";
 import {
   paraFormat, escapeHtml, tarihFormat, saatFormat, tarihAnahtari, bildirimGoster, debounce,
   MASA_DURUMLARI, SIPARIS_DURUMLARI, ALERJEN_LISTESI, kategorilerSirali, kategoriVeAltlariIds, temaBaslat,
+  urunSubedeAktifMi, urunSubeFiyati,
 } from "../../shared/utils.js";
 
 const ROL_ETIKET = { admin: "Admin", garson: "Garson", kasa: "Kasa", mutfak: "Mutfak" };
@@ -54,9 +55,42 @@ function sepetAnahtari() { return `sepet_kasa_${seciliMasaId}`; }
 function sepetOku() { try { return JSON.parse(localStorage.getItem(sepetAnahtari())) || []; } catch { return []; } }
 function sepetYaz() { localStorage.setItem(sepetAnahtari(), JSON.stringify(sepet)); sepetBarGuncelle(); }
 
+// Admin hesabının subeId'si YOKTUR (tüm şubeleri yönetir) — ama adisyon
+// terminali tek bir şubeye ait masalar/siparişler/kasa/gün sonu üzerinde
+// çalışır. Admin (veya şubesiz herhangi bir hesap) bu terminale girerse,
+// hangi şube için çalıştığını seçmesi istenir; aksi halde masalar/gün sonu
+// TÜM şubeler karışık görünür ve gün sonu "şubeye bağlı olmalısınız"
+// uyarısıyla hiç kapatılamaz.
+async function subeSeciciGoster() {
+  const snap = await getDocs(collection(db, "subeler"));
+  const subeler = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  if (subeler.length <= 1) return subeler[0]?.id || null;
+
+  return new Promise((resolve) => {
+    const katman = document.createElement("div");
+    katman.className = "modal-katman";
+    katman.innerHTML = `
+      <div class="modal-kutu" style="position:relative;">
+        <h2>🏬 Hangi şube için çalışıyorsunuz?</h2>
+        <p style="font-size:13px;color:var(--renk-yazi-soluk);">Hesabınız belirli bir şubeye bağlı değil. Bu adisyon terminalinin hangi şubeye ait olduğunu seçin — bu seçim sadece bu oturum için geçerlidir.</p>
+        <div id="sube-secici-liste" class="liste-alani"></div>
+      </div>`;
+    document.body.appendChild(katman);
+    const listeEl = katman.querySelector("#sube-secici-liste");
+    listeEl.innerHTML = subeler.map((s) => `<div class="liste-satir" data-sube="${s.id}" style="cursor:pointer;"><div class="ana-bilgi"><strong>${escapeHtml(s.ad)}</strong></div></div>`).join("");
+    listeEl.querySelectorAll("[data-sube]").forEach((satir) => satir.addEventListener("click", () => {
+      katman.remove();
+      resolve(satir.dataset.sube);
+    }));
+  });
+}
+
 async function baslat() {
   const { rol, subeId, ad } = await sayfaKorumaBaslat(["kasa", "admin"]);
   kullanici = { ad, subeId, rol };
+  if (!kullanici.subeId) {
+    kullanici.subeId = await subeSeciciGoster();
+  }
 
   document.getElementById("yukleniyor-ekrani").remove();
   document.getElementById("sayfa").hidden = false;
@@ -95,7 +129,7 @@ async function baslat() {
   });
 
   onSnapshot(query(collection(db, "urunler")), (snap) => {
-    urunlerCache = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => u.aktif !== false);
+    urunlerCache = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => urunSubedeAktifMi(u, kullanici.subeId));
     if (seciliMasaId && menuAcik) renderDetay();
   });
 
@@ -143,7 +177,9 @@ async function baslat() {
     : query(collection(db, "gunSonuKapanislari"));
   onSnapshot(gunSonuQuery, (snap) => {
     const tumu = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    gunSonuBugunKaydi = tumu.find((g) => g.tarih === tarihAnahtari()) || null;
+    // İptal edilmiş (admin tarafından yeniden açılmış) bir kapanış artık
+    // "bugün kapalı" sayılmaz — kasa günü yeniden kapatabilmeli.
+    gunSonuBugunKaydi = tumu.find((g) => g.tarih === tarihAnahtari() && !g.iptalEdildi) || null;
   });
 
   document.getElementById("garson-atama-goster-buton").addEventListener("click", () => {
@@ -806,7 +842,7 @@ function renderMenuUrunleri() {
     <div class="pos-urun-kart" data-urun="${u.id}">
       <button class="pos-not-buton" data-not="${u.id}" title="Not / adet ekleyerek ekle">✏️</button>
       <div class="ad">${escapeHtml(u.ad)}</div>
-      <div class="fiyat">${paraFormat(u.fiyat)}</div>
+      <div class="fiyat">${paraFormat(urunSubeFiyati(u, kullanici.subeId))}</div>
     </div>`).join("");
 
   el.querySelectorAll(".pos-urun-kart").forEach((kart) => kart.addEventListener("click", (e) => {
@@ -815,8 +851,9 @@ function renderMenuUrunleri() {
       urunEkleModali(urun);
       return;
     }
+    const fiyat = urunSubeFiyati(urun, kullanici.subeId);
     const mevcut = sepet.find((s) => s.urunId === urun.id && !s.not);
-    if (mevcut) mevcut.adet += 1; else sepet.push({ urunId: urun.id, ad: urun.ad, fiyat: urun.fiyat, adet: 1, not: "" });
+    if (mevcut) mevcut.adet += 1; else sepet.push({ urunId: urun.id, ad: urun.ad, fiyat, adet: 1, not: "" });
     sepetYaz();
     bildirimGoster(`${urun.ad} eklendi.`, "basari");
   }));
@@ -824,6 +861,7 @@ function renderMenuUrunleri() {
 
 function urunEkleModali(urun) {
   let adet = 1;
+  const fiyat = urunSubeFiyati(urun, kullanici.subeId);
   const katman = document.createElement("div");
   katman.className = "alt-sayfa-katman";
   const alerjenDetayHtml = (urun.alerjenler || [])
@@ -835,7 +873,7 @@ function urunEkleModali(urun) {
     <div class="alt-sayfa">
       <div class="alt-sayfa-tutamac"></div>
       <h2>${escapeHtml(urun.ad)}</h2>
-      <div class="detay-fiyat">${paraFormat(urun.fiyat)}</div>
+      <div class="detay-fiyat">${paraFormat(fiyat)}</div>
       <div class="detay-bilgi-satir">
         <span class="detay-bilgi-rozet">🔥 ${urun.kalori ?? "-"} kcal</span>
       </div>
@@ -857,7 +895,7 @@ function urunEkleModali(urun) {
   katman.querySelector("#detay-sepete-ekle").addEventListener("click", () => {
     const not = katman.querySelector("#detay-not").value.trim();
     const mevcut = sepet.find((s) => s.urunId === urun.id && s.not === not);
-    if (mevcut) mevcut.adet += adet; else sepet.push({ urunId: urun.id, ad: urun.ad, fiyat: urun.fiyat, adet, not });
+    if (mevcut) mevcut.adet += adet; else sepet.push({ urunId: urun.id, ad: urun.ad, fiyat, adet, not });
     sepetYaz();
     bildirimGoster(`${urun.ad} sepete eklendi.`, "basari");
     katman.remove();
@@ -902,7 +940,7 @@ function duzenlemeModaliGoster(siparis) {
     icerikEl.querySelector("#duzenle-urun-ekle-buton").addEventListener("click", () => {
       duzenlemeUrunSeciciGoster((urun) => {
         const mevcut = kalemler.find((k) => k.urunId === urun.id && !k.not);
-        if (mevcut) mevcut.adet += 1; else kalemler.push({ urunId: urun.id, ad: urun.ad, fiyat: urun.fiyat, adet: 1, not: "" });
+        if (mevcut) mevcut.adet += 1; else kalemler.push({ urunId: urun.id, ad: urun.ad, fiyat: urunSubeFiyati(urun, kullanici.subeId), adet: 1, not: "" });
         icerikEl.innerHTML = icerik();
         bagla();
       });
@@ -945,7 +983,7 @@ function duzenlemeUrunSeciciGoster(secilinceCallback) {
     const liste = urunlerCache.filter((u) => !filtre || u.ad?.toLowerCase().includes(filtre));
     el.innerHTML = liste.map((u) => `
       <div class="liste-satir" data-urun="${u.id}" style="cursor:pointer;">
-        <div class="ana-bilgi"><strong>${escapeHtml(u.ad)}</strong><span>${paraFormat(u.fiyat)}</span></div>
+        <div class="ana-bilgi"><strong>${escapeHtml(u.ad)}</strong><span>${paraFormat(urunSubeFiyati(u, kullanici.subeId))}</span></div>
       </div>`).join("");
     el.querySelectorAll("[data-urun]").forEach((satir) => satir.addEventListener("click", () => {
       secilinceCallback(urunlerCache.find((u) => u.id === satir.dataset.urun));
