@@ -358,15 +358,13 @@ function renderUrunler() {
   if (liste.length === 0) { listeEl.innerHTML = `<div class="bos-durum">Ürün bulunamadı.</div>`; return; }
 
   listeEl.innerHTML = liste.map((u) => `
-    <div class="urun-satir" data-urun="${u.id}">
-      <div class="metin">
+    <div class="urun-kare-kart" data-urun="${u.id}">
+      <img src="${u.gorselUrl || "https://placehold.co/300x300?text=%F0%9F%8D%BD"}" alt="" loading="lazy" />
+      <div class="ukk-govde">
         <h3>${escapeHtml(u.ad)}</h3>
-        <div class="alt-satir">
-          <span class="fiyat">${paraFormat(u.fiyat)}</span>
-          <span class="rozet-satir">${u.kalori ?? "-"} kcal ${alerjenRozetleriHtml(u.alerjenler, u.glutensiz)}</span>
-        </div>
+        <span class="fiyat">${paraFormat(u.fiyat)}</span>
+        <div class="ukk-rozet">${u.kalori ?? "-"} kcal ${alerjenRozetleriHtml(u.alerjenler, u.glutensiz)}</div>
       </div>
-      <img src="${u.gorselUrl || "https://placehold.co/160x160?text=%F0%9F%8D%BD"}" alt="" loading="lazy" />
     </div>`).join("");
 
   listeEl.querySelectorAll("[data-urun]").forEach((satir) => satir.addEventListener("click", () => {

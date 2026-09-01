@@ -60,3 +60,27 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
 .siparis-eylem-satir { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .siparis-eylem-satir button { flex: 1; min-width: 80px; }
 .iptal-notu { font-size: 12px; color: var(--renk-yazi-soluk); margin-top: 6px; font-style: italic; }
+
+/* Ürün ekleme listesi — geniş ekranlarda satırın tek sütuna yayılıp isim/
+   görsel arasında boşluk açmaması için KARE KARTLAR halinde bir ızgara. */
+.urun-kare-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+.urun-kare-grid .bos-durum { grid-column: 1 / -1; }
+.urun-kare-kart {
+  background: var(--renk-kart); border-radius: 12px; overflow: hidden; cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08); display: flex; flex-direction: column;
+}
+.urun-kare-kart:active { transform: scale(0.97); }
+.urun-kare-kart img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: var(--renk-ikincil-bg); }
+.ukk-govde { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 3px; }
+.ukk-govde h3 {
+  font-family: var(--font-baslik); font-weight: 700; font-size: 13.5px; margin: 0; line-height: 1.25;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ukk-govde .fiyat { font-weight: 800; color: var(--renk-ana); font-size: 13px; }
+.ukk-rozet {
+  font-size: 10.5px; color: var(--renk-yazi-soluk); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
