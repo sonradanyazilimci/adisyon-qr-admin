@@ -6,8 +6,10 @@ import { siparisOlustur } from "../../shared/siparis.js";
 import { sayfaKorumaBaslat, cikisYap } from "../../shared/auth.js";
 import {
   paraFormat, escapeHtml, alerjenRozetleriHtml, bildirimGoster, debounce, MASA_DURUMLARI,
-  SIPARIS_DURUMLARI, tarihFormat, kategorilerSirali, kategoriVeAltlariIds,
+  SIPARIS_DURUMLARI, tarihFormat, kategorilerSirali, kategoriVeAltlariIds, temaBaslat,
 } from "../../shared/utils.js";
+
+temaBaslat();
 
 let kullanici = null; // {ad, subeId}
 let masalarCache = [];

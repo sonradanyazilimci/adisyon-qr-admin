@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Adisyon / Kasa</title>
 <link rel="stylesheet" href="../shared/common.css" />
+<link rel="stylesheet" href="../menu/css/menu.css" />
 <link rel="stylesheet" href="./css/adisyon.css" />
 </head>
 <body>
@@ -16,7 +17,10 @@
         <h1 id="kasa-baslik">Adisyon / Kasa</h1>
         <p id="kasa-alt-baslik">Şube</p>
       </div>
-      <button id="cikis-buton" class="btn-ikincil btn-kucuk">Çıkış</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="tema-degistir-buton" class="tema-degistir-buton" title="Tema değiştir">🌙</button>
+        <button id="cikis-buton" class="btn-ikincil btn-kucuk">Çıkış</button>
+      </div>
     </header>
 
     <main class="adisyon-govde yazdirma-gizle">
@@ -29,6 +33,12 @@
         <div class="bos-durum">Detaylarını görmek için bir masa seçin.</div>
       </section>
     </main>
+
+    <button id="sepet-bar" class="sepet-bar yazdirma-gizle" hidden>
+      <span id="sepet-bar-adet">0 ürün</span>
+      <span id="sepet-bar-tutar">0,00 ₺</span>
+      <span class="sepet-bar-ok">Sepeti Gör →</span>
+    </button>
   </div>
 
   <div id="fis-yazdirma" class="yazdirilacak" style="display:none;"></div>

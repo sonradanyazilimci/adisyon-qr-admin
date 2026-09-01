@@ -129,6 +129,39 @@ export function masaQrUrl(masaId, subeId = "", boyut = 300) {
   };
 }
 
+// ───────────────────────── Karanlık / aydınlık tema ─────────────────────────
+// Tercih localStorage'da saklanır; kayıtlı tercih yoksa cihazın sistem temasına
+// (prefers-color-scheme) bakılır. <html data-tema="karanlik|aydinlik"> ile
+// common.css'teki CSS değişkenleri devreye girer.
+const TEMA_ANAHTARI = "tema";
+
+export function temaBaslat(butonId = "tema-degistir-buton") {
+  const kayitli = localStorage.getItem(TEMA_ANAHTARI);
+  const sistemKaranlik = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const tema = kayitli || (sistemKaranlik ? "karanlik" : "aydinlik");
+  document.documentElement.setAttribute("data-tema", tema);
+
+  const buton = document.getElementById(butonId);
+  if (buton) {
+    guncelleButonIkonu(buton, tema);
+    buton.addEventListener("click", () => temaDegistir(butonId));
+  }
+}
+
+export function temaDegistir(butonId = "tema-degistir-buton") {
+  const mevcut = document.documentElement.getAttribute("data-tema") === "karanlik" ? "karanlik" : "aydinlik";
+  const yeni = mevcut === "karanlik" ? "aydinlik" : "karanlik";
+  document.documentElement.setAttribute("data-tema", yeni);
+  localStorage.setItem(TEMA_ANAHTARI, yeni);
+  const buton = document.getElementById(butonId);
+  if (buton) guncelleButonIkonu(buton, yeni);
+}
+
+function guncelleButonIkonu(buton, tema) {
+  buton.textContent = tema === "karanlik" ? "☀️" : "🌙";
+  buton.title = tema === "karanlik" ? "Aydınlık temaya geç" : "Karanlık temaya geç";
+}
+
 // Firestore onSnapshot hata yakalayıcı — konsola yazar ve kullanıcıya toast gösterir.
 export function snapshotHataYakala(baglam) {
   return (err) => {

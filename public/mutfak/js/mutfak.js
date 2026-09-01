@@ -31,7 +31,7 @@ async function baslat() {
     (snap) => {
       siparislerCache = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((s) => s.durum === "yeni" || s.durum === "hazirlaniyor");
+        .filter((s) => s.durum === "yeni" || s.durum === "hazirlaniyor" || s.durum === "hazir");
       render();
     },
     snapshotHataYakala("mutfak-siparisler")
@@ -44,15 +44,22 @@ function siraliListe(durum) {
     .sort((a, b) => (a.olusturmaZamani?.toMillis?.() || 0) - (b.olusturmaZamani?.toMillis?.() || 0));
 }
 
+const SONRAKI_DURUM = { yeni: "hazirlaniyor", hazirlaniyor: "hazir" };
+const ONCEKI_DURUM = { hazirlaniyor: "yeni", hazir: "hazirlaniyor" };
+const ILERI_BUTON_METNI = { yeni: "🔥 Hazırlamaya Başla", hazirlaniyor: "✅ Hazırlandı" };
+
 function render() {
   const yeniListe = siraliListe("yeni");
   const hazirlaniyorListe = siraliListe("hazirlaniyor");
+  const hazirListe = siraliListe("hazir");
 
   document.getElementById("yeni-sayisi").textContent = yeniListe.length || "";
   document.getElementById("hazirlaniyor-sayisi").textContent = hazirlaniyorListe.length || "";
+  document.getElementById("hazir-sayisi").textContent = hazirListe.length || "";
 
   renderSutun("yeni-liste", yeniListe, "yeni");
   renderSutun("hazirlaniyor-liste", hazirlaniyorListe, "hazirlaniyor");
+  renderSutun("hazir-liste", hazirListe, "hazir");
 }
 
 function renderSutun(elementId, liste, durum) {
@@ -81,20 +88,23 @@ function renderSutun(elementId, liste, durum) {
           )
           .join("")}
       </div>
-      <button class="${durum === "yeni" ? "btn-birincil" : "btn-yesil"}" data-ileri="${s.id}">
-        ${durum === "yeni" ? "🔥 Hazırlamaya Başla" : "✅ Hazır"}
-      </button>
+      <div class="siparis-karti-eylemler">
+        ${ONCEKI_DURUM[durum] ? `<button class="btn-ikincil btn-kucuk" data-geri="${s.id}">◀ Geri Al</button>` : ""}
+        ${SONRAKI_DURUM[durum] ? `<button class="${durum === "yeni" ? "btn-birincil" : "btn-yesil"}" data-ileri="${s.id}">${ILERI_BUTON_METNI[durum]}</button>` : ""}
+      </div>
     </div>`
     )
     .join("");
 
   el.querySelectorAll("[data-ileri]").forEach((b) =>
-    b.addEventListener("click", () => durumIlerlet(b.dataset.ileri, durum))
+    b.addEventListener("click", () => durumGuncelle(b.dataset.ileri, SONRAKI_DURUM[durum]))
+  );
+  el.querySelectorAll("[data-geri]").forEach((b) =>
+    b.addEventListener("click", () => durumGuncelle(b.dataset.geri, ONCEKI_DURUM[durum]))
   );
 }
 
-async function durumIlerlet(siparisId, mevcutDurum) {
-  const yeniDurum = mevcutDurum === "yeni" ? "hazirlaniyor" : "hazir";
+async function durumGuncelle(siparisId, yeniDurum) {
   try {
     await updateDoc(doc(db, "siparisler", siparisId), { durum: yeniDurum });
   } catch (err) {

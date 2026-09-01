@@ -9,7 +9,7 @@ body { background: #1c2530; color: #fff; }
 .mutfak-header #cikis-buton { background: #2a3644; color: #fff; }
 
 .mutfak-govde { display: flex; gap: 20px; padding: 20px; align-items: flex-start; flex-wrap: wrap; }
-.mutfak-sutun { flex: 1; min-width: 320px; }
+.mutfak-sutun { flex: 1; min-width: 280px; }
 .mutfak-sutun h2 { font-size: 16px; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
 .sayac {
   background: rgba(255,255,255,.15); border-radius: 999px; padding: 2px 10px; font-size: 13px; font-weight: 800;
@@ -21,6 +21,7 @@ body { background: #1c2530; color: #fff; }
   border-left: 5px solid #e67e22;
 }
 .siparis-karti.hazirlaniyor { border-left-color: #3498db; }
+.siparis-karti.hazir { border-left-color: #27ae60; opacity: .85; }
 .siparis-karti .ust {
   display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;
 }
@@ -31,7 +32,9 @@ body { background: #1c2530; color: #fff; }
 .siparis-karti .kalem { display: flex; justify-content: space-between; font-size: 15px; gap: 10px; }
 .siparis-karti .kalem .adet { font-weight: 800; color: #f39c12; min-width: 30px; }
 .siparis-karti .kalem .not { font-size: 12px; color: #f1c40f; display: block; }
-.siparis-karti button { width: 100%; padding: 12px; font-size: 14px; }
+.siparis-karti-eylemler { display: flex; gap: 8px; }
+.siparis-karti-eylemler button { flex: 1; padding: 12px; font-size: 14px; }
+.siparis-karti-eylemler .btn-ikincil { flex: 0 0 auto; background: #37424f; color: #cfd6dd; }
 
 .siparis-karti.yeni-vurgu { animation: yaniyor 1.4s ease-in-out infinite; }
 @keyframes yaniyor {

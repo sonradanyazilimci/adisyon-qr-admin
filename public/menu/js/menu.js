@@ -5,8 +5,10 @@ import {
 import { siparisOlustur, garsonCagir } from "../../shared/siparis.js";
 import {
   paraFormat, escapeHtml, alerjenRozetleriHtml, ALERJEN_LISTESI, bildirimGoster, debounce,
-  kategorilerSirali, kategoriVeAltlariIds,
+  kategorilerSirali, kategoriVeAltlariIds, temaBaslat,
 } from "../../shared/utils.js";
+
+temaBaslat();
 
 const params = new URLSearchParams(window.location.search);
 const masaId = params.get("masa");

@@ -1,7 +1,7 @@
-body { background: #f7f7f9; padding-bottom: 90px; }
+body { background: var(--renk-arkaplan); padding-bottom: 90px; }
 
 .garson-header {
-  background: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;
+  background: var(--renk-kart); padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;
   box-shadow: 0 2px 8px rgba(0,0,0,.05); position: sticky; top: 0; z-index: 40;
 }
 .garson-header h1 { font-size: 18px; margin: 0; }
@@ -11,7 +11,7 @@ body { background: #f7f7f9; padding-bottom: 90px; }
 .masa-secim-alani h2 { font-size: 15px; margin: 0 0 10px; }
 .masalar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
 .masa-kart-mini {
-  background: #fff; border-radius: 12px; padding: 14px 8px; text-align: center; box-shadow: var(--golge);
+  background: var(--renk-kart); border-radius: 12px; padding: 14px 8px; text-align: center; box-shadow: var(--golge);
   font-weight: 800; font-size: 14px; border: 2px solid transparent; position: relative;
 }
 .masa-kart-mini .durum { font-size: 11px; font-weight: 700; margin-top: 4px; }
@@ -32,7 +32,7 @@ body { background: #f7f7f9; padding-bottom: 90px; }
 
 .mevcut-siparisler { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
 .mevcut-siparis-blok {
-  background: #fff; border-radius: 10px; padding: 10px 12px; box-shadow: var(--golge);
+  background: var(--renk-kart); border-radius: 10px; padding: 10px 12px; box-shadow: var(--golge);
   border-left: 4px solid var(--renk-ana);
 }
 .mevcut-siparis-blok .ust {
