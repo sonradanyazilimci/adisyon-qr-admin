@@ -6,7 +6,7 @@ import { sayfaKorumaBaslat, cikisYap } from "../../shared/auth.js";
 import { siparisOlustur } from "../../shared/siparis.js";
 import {
   paraFormat, escapeHtml, tarihFormat, bildirimGoster, debounce, MASA_DURUMLARI, SIPARIS_DURUMLARI,
-  alerjenRozetleriHtml, ALERJEN_LISTESI, kategorilerSirali, kategoriVeAltlariIds, temaBaslat,
+  ALERJEN_LISTESI, kategorilerSirali, kategoriVeAltlariIds, temaBaslat,
 } from "../../shared/utils.js";
 
 temaBaslat();
@@ -116,7 +116,13 @@ function renderDetay() {
   const toplamTutar = acikSiparisler.reduce((acc, s) => acc + siparisTutari(s), 0);
 
   panel.innerHTML = `
-    <h2>${escapeHtml(masa.ad)}</h2>
+    <div class="detay-panel-baslik">
+      <h2>${escapeHtml(masa.ad)}</h2>
+      <div class="masa-eylem-satir">
+        <button id="masa-tasi-buton" class="btn-ikincil btn-kucuk">↪️ Masa Taşı</button>
+        <button id="masa-birlestir-buton" class="btn-ikincil btn-kucuk">🔗 Masa Birleştir</button>
+      </div>
+    </div>
     ${acikSiparisler.length === 0
       ? `<div class="bos-durum">Bu masada açık sipariş yok.</div>`
       : `
@@ -154,9 +160,25 @@ function renderDetay() {
     <div id="adisyon-menu-alani" ${menuAcik ? "" : "hidden"}>
       <div class="arama-alani" style="padding:12px 0 8px;"><input class="adisyon-menu-arama" type="search" placeholder="Menüde ara..." value="${escapeHtml(aramaMetni)}" /></div>
       <nav class="kategori-seritler adisyon-menu-kategoriler" style="padding:4px 0 12px;"></nav>
-      <div class="urun-listesi adisyon-menu-urunler" style="padding:0;"></div>
+      <div class="pos-urun-grid adisyon-menu-urunler"></div>
     </div>
   `;
+
+  panel.querySelector("#masa-tasi-buton").addEventListener("click", () => {
+    masaSeciciGoster("Bu masadaki siparişler hangi masaya taşınsın?", seciliMasaId, async (hedefId) => {
+      await siparisleriTasi(seciliMasaId, hedefId);
+      seciliMasaId = hedefId;
+      renderMasalar();
+      renderDetay();
+    });
+  });
+  panel.querySelector("#masa-birlestir-buton").addEventListener("click", () => {
+    masaSeciciGoster("Hangi masa bu masayla birleştirilsin?", seciliMasaId, async (kaynakId) => {
+      await siparisleriTasi(kaynakId, seciliMasaId);
+      renderMasalar();
+      renderDetay();
+    });
+  });
 
   panel.querySelectorAll(".siparis-durum-select").forEach((sel) => {
     sel.addEventListener("change", async () => {
@@ -205,6 +227,9 @@ function renderMenuKategorileri() {
   }));
 }
 
+// Kasa için POS tarzı yoğun ızgara: tüm ürünler tek bakışta görünür, karta
+// tıklamak 1 adet olarak DOĞRUDAN sepete ekler (hız için — not/adet girmek
+// isterseniz kart üzerindeki ✏️ ikonunu kullanın).
 function renderMenuUrunleri() {
   const el = document.querySelector(".adisyon-menu-urunler");
   if (!el) return;
@@ -216,20 +241,25 @@ function renderMenuUrunleri() {
   if (aramaMetni) liste = liste.filter((u) => u.ad?.toLowerCase().includes(aramaMetni));
   if (liste.length === 0) { el.innerHTML = `<div class="bos-durum">Ürün bulunamadı.</div>`; return; }
 
+  liste = liste.slice().sort((a, b) => (a.ad || "").localeCompare(b.ad || "", "tr"));
+
   el.innerHTML = liste.map((u) => `
-    <div class="urun-satir" data-urun="${u.id}">
-      <div class="metin">
-        <h3>${escapeHtml(u.ad)}</h3>
-        <div class="alt-satir">
-          <span class="fiyat">${paraFormat(u.fiyat)}</span>
-          <span class="rozet-satir">${u.kalori ?? "-"} kcal ${alerjenRozetleriHtml(u.alerjenler, u.glutensiz)}</span>
-        </div>
-      </div>
-      <img src="${u.gorselUrl || "https://placehold.co/160x160?text=%F0%9F%8D%BD"}" alt="" loading="lazy" />
+    <div class="pos-urun-kart" data-urun="${u.id}">
+      <button class="pos-not-buton" data-not="${u.id}" title="Not / adet ekleyerek ekle">✏️</button>
+      <div class="ad">${escapeHtml(u.ad)}</div>
+      <div class="fiyat">${paraFormat(u.fiyat)}</div>
     </div>`).join("");
 
-  el.querySelectorAll("[data-urun]").forEach((satir) => satir.addEventListener("click", () => {
-    urunEkleModali(urunlerCache.find((u) => u.id === satir.dataset.urun));
+  el.querySelectorAll(".pos-urun-kart").forEach((kart) => kart.addEventListener("click", (e) => {
+    const urun = urunlerCache.find((u) => u.id === kart.dataset.urun);
+    if (e.target.closest(".pos-not-buton")) {
+      urunEkleModali(urun);
+      return;
+    }
+    const mevcut = sepet.find((s) => s.urunId === urun.id && !s.not);
+    if (mevcut) mevcut.adet += 1; else sepet.push({ urunId: urun.id, ad: urun.ad, fiyat: urun.fiyat, adet: 1, not: "" });
+    sepetYaz();
+    bildirimGoster(`${urun.ad} eklendi.`, "basari");
   }));
 }
 
@@ -249,6 +279,9 @@ function urunEkleModali(urun) {
       <div class="detay-fiyat">${paraFormat(urun.fiyat)}</div>
       <div class="detay-bilgi-satir">
         <span class="detay-bilgi-rozet">🔥 ${urun.kalori ?? "-"} kcal</span>
+      </div>
+      <div class="detay-etiket">Alerjenler</div>
+      <div class="detay-bilgi-satir">
         ${alerjenDetayHtml || `<span class="detay-bilgi-rozet">Bilinen alerjen yok</span>`}
       </div>
       <div class="form-alan"><label>Not (opsiyonel)</label><input id="detay-not" placeholder="Örn: az pişmiş, soğansız" /></div>
@@ -270,6 +303,68 @@ function urunEkleModali(urun) {
     bildirimGoster(`${urun.ad} sepete eklendi.`, "basari");
     katman.remove();
   });
+}
+
+// Başka bir masa seçmek için basit bir liste modalı gösterir; seçilince
+// callback(hedefMasaId) çağrılır. `haricTutId` listeye dahil edilmeyecek masa.
+function masaSeciciGoster(baslik, haricTutId, callback) {
+  const katman = document.createElement("div");
+  katman.className = "modal-katman";
+  const secenekler = masalarCache
+    .filter((m) => m.id !== haricTutId)
+    .sort((a, b) => (a.ad || "").localeCompare(b.ad || "", "tr", { numeric: true }));
+
+  katman.innerHTML = `
+    <div class="modal-kutu" style="position:relative;">
+      <button class="modal-kapat">&times;</button>
+      <h3>${escapeHtml(baslik)}</h3>
+      <div class="liste-alani">
+        ${secenekler.length === 0
+          ? `<div class="bos-durum">Başka masa bulunamadı.</div>`
+          : secenekler.map((m) => {
+              const acik = masaninAcikSiparisleri(m.id);
+              const toplam = acik.reduce((acc, s) => acc + siparisTutari(s), 0);
+              const durum = MASA_DURUMLARI[m.durum] || MASA_DURUMLARI.bos;
+              return `
+              <div class="liste-satir" data-hedef="${m.id}" style="cursor:pointer;">
+                <div class="ana-bilgi">
+                  <strong>${escapeHtml(m.ad)}</strong>
+                  <span style="color:${durum.renk}">${durum.etiket}${toplam > 0 ? " · " + paraFormat(toplam) : ""}</span>
+                </div>
+              </div>`;
+            }).join("")}
+      </div>
+    </div>`;
+  document.body.appendChild(katman);
+  katman.querySelector(".modal-kapat").addEventListener("click", () => katman.remove());
+  katman.addEventListener("click", (e) => { if (e.target === katman) katman.remove(); });
+  katman.querySelectorAll("[data-hedef]").forEach((el) => el.addEventListener("click", () => {
+    callback(el.dataset.hedef);
+    katman.remove();
+  }));
+}
+
+// Bir masadaki tüm açık siparişleri başka bir masaya taşır (masa taşıma ve
+// masa birleştirme aynı işlemin iki farklı yönüdür).
+async function siparisleriTasi(kaynakMasaId, hedefMasaId) {
+  const kaynakSiparisler = masaninAcikSiparisleri(kaynakMasaId);
+  if (kaynakSiparisler.length === 0) {
+    bildirimGoster("Taşınacak açık sipariş yok.", "uyari");
+    return;
+  }
+  const hedefMasa = masalarCache.find((m) => m.id === hedefMasaId);
+  try {
+    await Promise.all(
+      kaynakSiparisler.map((s) =>
+        updateDoc(doc(db, "siparisler", s.id), { masaId: hedefMasaId, masaAd: hedefMasa?.ad || hedefMasaId })
+      )
+    );
+    await updateDoc(doc(db, "masalar", kaynakMasaId), { durum: "bos", garsonCagirildi: false });
+    await updateDoc(doc(db, "masalar", hedefMasaId), { durum: "dolu" });
+    bildirimGoster("Siparişler taşındı.", "basari");
+  } catch (err) {
+    bildirimGoster("Hata: " + err.message, "hata");
+  }
 }
 
 function sepetBarGuncelle() {

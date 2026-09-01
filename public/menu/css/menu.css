@@ -24,11 +24,11 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
 .menu-header-ust { display: flex; align-items: center; gap: 12px; padding: 14px 16px 8px; }
 .restoran-logo { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 1px solid var(--renk-kenar); flex-shrink: 0; }
 .restoran-bilgi { flex: 1; min-width: 0; }
-.restoran-bilgi h1 { font-size: 18px; margin: 0; line-height: 1.2; }
-.restoran-bilgi p { font-size: 12px; color: var(--renk-yazi-soluk); margin: 2px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.restoran-bilgi h1 { font-family: var(--font-baslik); font-weight: 800; font-size: 20px; margin: 0; line-height: 1.2; }
+.restoran-bilgi p { font-size: 11.5px; letter-spacing: .03em; color: var(--renk-yazi-soluk); margin: 2px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .masa-etiketi {
-  background: var(--renk-ana); color: #fff; font-weight: 800; font-size: 12px;
-  padding: 6px 12px; border-radius: 999px; white-space: nowrap; flex-shrink: 0;
+  background: var(--renk-ana); color: #fff; font-weight: 800; font-size: 11px; letter-spacing: .04em;
+  padding: 6px 12px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; text-transform: uppercase;
 }
 
 .arama-alani { padding: 6px 16px 10px; }
@@ -44,16 +44,17 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
 .kategori-seritler::-webkit-scrollbar { display: none; }
 .kategori-cip {
   flex-shrink: 0; padding: 8px 16px; border-radius: 999px; background: var(--renk-ikincil-bg);
-  font-size: 13px; font-weight: 700; color: var(--renk-yazi-soluk); white-space: nowrap; cursor: pointer;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--renk-yazi-soluk); white-space: nowrap; cursor: pointer;
   border: 1.5px solid transparent;
 }
 .kategori-cip.aktif { background: #fff3ea; color: var(--renk-ana); border-color: var(--renk-ana); }
-.kategori-cip.alt-kategori-cip { font-size: 12px; padding: 6px 13px; font-weight: 600; opacity: .85; }
+.kategori-cip.alt-kategori-cip { font-size: 10.5px; padding: 6px 13px; font-weight: 600; opacity: .85; }
 [data-tema="karanlik"] .kategori-cip.aktif { background: rgba(211,84,0,.22); color: #ff9f4d; }
 
 .urun-listesi { padding: 12px 12px 20px; display: flex; flex-direction: column; gap: 8px; }
-.kategori-basligi { font-size: 15px; font-weight: 800; margin: 14px 4px 2px; color: var(--renk-yazi); }
-.kategori-basligi.alt-kategori-basligi { font-size: 13px; font-weight: 700; margin-left: 10px; color: var(--renk-yazi-soluk); }
+.kategori-basligi { font-family: var(--font-baslik); font-size: 19px; font-weight: 800; margin: 18px 4px 4px; color: var(--renk-yazi); }
+.kategori-basligi.alt-kategori-basligi { font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; margin-left: 10px; color: var(--renk-yazi-soluk); }
 
 /* Ürün satırı: görsel küçük + metne yakın tutulur, satır genişliği #sayfa'nın
    dar sütunuyla sınırlı olduğu için isim/görsel arası artık makul mesafede. */
@@ -63,7 +64,7 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
 }
 .urun-satir:active { transform: scale(0.99); }
 .urun-satir .metin { flex: 1; min-width: 0; }
-.urun-satir .metin h3 { font-size: 14.5px; margin: 0 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.urun-satir .metin h3 { font-family: var(--font-baslik); font-weight: 700; font-size: 16px; margin: 0 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .urun-satir .metin p.aciklama {
   font-size: 12px; color: var(--renk-yazi-soluk); margin: 0 0 6px;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
@@ -72,7 +73,8 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
 .urun-satir .fiyat { font-weight: 800; color: var(--renk-ana); font-size: 14px; white-space: nowrap; }
 .urun-satir .rozet-satir { font-size: 11px; color: var(--renk-yazi-soluk); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .urun-satir img {
-  width: 72px; height: 72px; border-radius: 10px; object-fit: cover; background: var(--renk-ikincil-bg); flex-shrink: 0;
+  width: 80px; height: 80px; border-radius: 10px; object-fit: cover; background: var(--renk-ikincil-bg); flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
 }
 .urun-satir.pasif { opacity: .45; pointer-events: none; }
 
@@ -103,11 +105,15 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
 @keyframes yukariGel { from { transform: translateY(30px); opacity: .5; } to { transform: translateY(0); opacity: 1; } }
 .alt-sayfa-tutamac { width: 42px; height: 5px; background: var(--renk-kenar); border-radius: 3px; margin: 10px auto; }
 .alt-sayfa img.detay-gorsel { width: 100%; height: 180px; object-fit: cover; border-radius: 12px; margin-bottom: 12px; background: var(--renk-ikincil-bg); }
-.alt-sayfa h2 { margin: 0 0 4px; font-size: 19px; }
-.alt-sayfa .detay-fiyat { color: var(--renk-ana); font-weight: 800; font-size: 17px; margin-bottom: 8px; }
+.alt-sayfa h2 { font-family: var(--font-baslik); font-weight: 800; margin: 0 0 4px; font-size: 22px; }
+.alt-sayfa .detay-fiyat { color: var(--renk-ana); font-weight: 800; font-size: 18px; margin-bottom: 8px; }
 .alt-sayfa .detay-aciklama { font-size: 14px; color: var(--renk-yazi-soluk); margin-bottom: 10px; }
+.detay-etiket { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--renk-yazi-soluk); margin: 4px 0 6px; }
 .detay-bilgi-satir { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
-.detay-bilgi-rozet { font-size: 12px; background: var(--renk-ikincil-bg); padding: 4px 10px; border-radius: 999px; display: flex; align-items: center; gap: 4px; }
+.detay-bilgi-rozet {
+  font-size: 12px; background: transparent; border: 1px solid var(--renk-kenar); color: var(--renk-yazi);
+  padding: 4px 10px; border-radius: 999px; display: flex; align-items: center; gap: 4px;
+}
 .adet-secici { display: flex; align-items: center; gap: 14px; justify-content: center; margin: 14px 0; }
 .adet-secici button { width: 38px; height: 38px; border-radius: 50%; background: var(--renk-ikincil-bg); color: var(--renk-yazi); font-size: 18px; font-weight: 800; }
 .adet-secici span { font-size: 18px; font-weight: 800; min-width: 24px; text-align: center; }

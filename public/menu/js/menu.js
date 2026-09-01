@@ -171,10 +171,13 @@ function detayGoster(urun) {
       <img class="detay-gorsel" src="${urun.gorselUrl || "https://placehold.co/500x300?text=%F0%9F%8D%BD"}" alt="${escapeHtml(urun.ad)}" />
       <h2>${escapeHtml(urun.ad)}</h2>
       <div class="detay-fiyat">${paraFormat(urun.fiyat)}</div>
-      <p class="detay-aciklama">${escapeHtml(urun.aciklama || "")}</p>
       <div class="detay-bilgi-satir">
         <span class="detay-bilgi-rozet">🔥 ${urun.kalori ?? "-"} kcal</span>
-        ${urun.glutensiz ? `<span class="detay-bilgi-rozet" style="background:#eafaf1;color:var(--renk-yesil);">🚫🌾 Glutensiz</span>` : ""}
+        ${urun.glutensiz ? `<span class="detay-bilgi-rozet" style="color:var(--renk-yesil);border-color:var(--renk-yesil);">🚫🌾 Glutensiz</span>` : ""}
+      </div>
+      <p class="detay-aciklama">${escapeHtml(urun.aciklama || "")}</p>
+      <div class="detay-etiket">Alerjenler</div>
+      <div class="detay-bilgi-satir">
         ${alerjenDetayHtml || `<span class="detay-bilgi-rozet">Bilinen alerjen yok</span>`}
       </div>
       <div class="form-alan"><label>Not (opsiyonel)</label><input id="detay-not" placeholder="Örn: az pişmiş, soğansız" /></div>

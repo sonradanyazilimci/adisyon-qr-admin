@@ -44,9 +44,9 @@ function siraliListe(durum) {
     .sort((a, b) => (a.olusturmaZamani?.toMillis?.() || 0) - (b.olusturmaZamani?.toMillis?.() || 0));
 }
 
-const SONRAKI_DURUM = { yeni: "hazirlaniyor", hazirlaniyor: "hazir" };
-const ONCEKI_DURUM = { hazirlaniyor: "yeni", hazir: "hazirlaniyor" };
-const ILERI_BUTON_METNI = { yeni: "🔥 Hazırlamaya Başla", hazirlaniyor: "✅ Hazırlandı" };
+const SONRAKI_DURUM = { yeni: "hazirlaniyor", hazirlaniyor: "hazir", hazir: "servis_edildi" };
+const ONCEKI_DURUM = { hazirlaniyor: "yeni", hazir: "hazirlaniyor", servis_edildi: "hazir" };
+const ILERI_BUTON_METNI = { yeni: "🔥 Hazırlamaya Başla", hazirlaniyor: "✅ Hazırlandı", hazir: "🍽️ Servis Edildi" };
 
 function render() {
   const yeniListe = siraliListe("yeni");

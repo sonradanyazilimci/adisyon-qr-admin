@@ -16,21 +16,23 @@
   --renk-scrollbar: #ccd3db;
   --kenar-yaricap: 12px;
   --golge: 0 2px 10px rgba(15, 23, 42, 0.08);
+  --font-baslik: "Playfair Display", Georgia, "Times New Roman", serif;
   font-size: 16px;
   color-scheme: light;
 }
 
-/* Karanlık tema — <html data-tema="karanlik"> ile devreye girer (bkz. shared/utils.js temaBaslat/temaDegistir) */
+/* Karanlık tema — <html data-tema="karanlik"> ile devreye girer (bkz. shared/utils.js temaBaslat/temaDegistir).
+   Sıcak, editoryal bir "gece menüsü" hissi için neredeyse siyah zemin + kırık beyaz yazı. */
 [data-tema="karanlik"] {
-  --renk-arkaplan: #11151b;
-  --renk-kart: #1c222b;
-  --renk-yazi: #e8ebef;
-  --renk-yazi-soluk: #97a3b3;
-  --renk-kenar: #333e4a;
-  --renk-ikincil-bg: #2a3340;
-  --renk-input-bg: #232b35;
-  --renk-scrollbar: #3a4552;
-  --golge: 0 2px 12px rgba(0, 0, 0, 0.4);
+  --renk-arkaplan: #0e0f12;
+  --renk-kart: #17191e;
+  --renk-yazi: #f0ece4;
+  --renk-yazi-soluk: #9a9488;
+  --renk-kenar: #2b2d33;
+  --renk-ikincil-bg: #1f2126;
+  --renk-input-bg: #1a1b20;
+  --renk-scrollbar: #3a3d44;
+  --golge: 0 2px 14px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
 }
 
