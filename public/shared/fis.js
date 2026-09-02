@@ -16,6 +16,11 @@
 // ─────────────────────────────────────────────────────────────────────────
 import { paraFormat, escapeHtml } from "./utils.js";
 
+// GEÇİCİ: fiş yazdırma özelliği kullanıcı isteğiyle şimdilik devre dışı —
+// çağrı noktaları (adisyon.js/garson.js) hiç değiştirilmedi, sadece burada
+// tek bir bayrakla kapatıldı. Yeniden açmak için `true` yapmak yeterli.
+const FIS_YAZDIRMA_AKTIF = false;
+
 const ODEME_YONTEMI_ETIKET = { nakit: "NAKİT", kart: "KART", yemek_ceki: "YEMEK ÇEKİ" };
 
 function fisAlaniniAl() {
@@ -33,6 +38,7 @@ function fisAlaniniAl() {
  * @param {{masaAd:string, gonderenAdi?:string, urunler:Array<{ad:string, adet:number, not?:string}>}} girdi
  */
 export function mutfakFisiYazdir({ masaAd, gonderenAdi, urunler }) {
+  if (!FIS_YAZDIRMA_AKTIF) return;
   const el = fisAlaniniAl();
   if (!el || !urunler || urunler.length === 0) return;
   el.innerHTML = `
@@ -69,6 +75,7 @@ export function musteriFisiYazdir({
   isletmeAdi, subeAdi, subeAdres, subeTelefon, vergiDairesi, vergiNo,
   masaAd, kalemler, toplam, odemeSatirlari, kapananKullanici,
 }) {
+  if (!FIS_YAZDIRMA_AKTIF) return;
   const el = fisAlaniniAl();
   if (!el) return;
   const baslikAdi = isletmeAdi || subeAdi || "";
