@@ -2,7 +2,7 @@ import { db, auth } from "../../shared/firebase-config.js";
 import {
   collection, doc, getDoc, getDocs, updateDoc, addDoc, onSnapshot, query, where, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import { signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import { sayfaKorumaBaslat, cikisYap } from "../../shared/auth.js";
 import { siparisOlustur, siparisiOnayla, siparisiGuncelle, siparisiIptalEt } from "../../shared/siparis.js";
 import { mutfakFisiYazdir, musteriFisiYazdir } from "../../shared/fis.js";
@@ -323,31 +323,64 @@ function kilitGizle() {
 }
 
 // Kilit ekranında şifre girilince: oturum sessizce YENİ personele devredilir
-// (signOut olmadan doğrudan signIn — Firebase eski oturumu otomatik
-// değiştirir), rol/şube bilgisi tazelenir ve otomatik puantaj girişi açılır.
+// (kullanıcı hiçbir yönlendirme görmez — kilit ekranı zaten her şeyi
+// kaplıyor), rol/şube bilgisi tazelenir ve otomatik puantaj girişi açılır.
+// Firebase Auth hata kodlarını anlaşılır Türkçe mesaja çevirir. Bilinmeyen
+// bir kod gelirse HAM kodu da gösterir — "sistem açılmıyor" gibi belirsiz
+// şikayetlerde neyin yanlış gittiğini teşhis edebilmek için.
+function girisHataMesaji(err) {
+  const kod = err?.code || "";
+  const eslesme = {
+    "auth/wrong-password": "Şifre hatalı.",
+    "auth/invalid-credential": "Şifre hatalı.",
+    "auth/invalid-login-credentials": "Şifre hatalı.",
+    "auth/user-not-found": "Bu hesap bulunamadı (e-posta adresi Authentication'da kayıtlı değil).",
+    "auth/user-disabled": "Bu hesap devre dışı bırakılmış.",
+    "auth/too-many-requests": "Çok fazla hatalı deneme yapıldı, bir süre bekleyip tekrar deneyin.",
+    "auth/network-request-failed": "İnternet bağlantısı sorunu — tekrar deneyin.",
+    "auth/invalid-email": "Bu personelin e-posta adresi geçersiz görünüyor (Personel kaydını kontrol edin).",
+  };
+  if (eslesme[kod]) return eslesme[kod];
+  return `${err?.message || "Bilinmeyen hata"}${kod ? ` (${kod})` : ""}`;
+}
+
 async function kilitFormGonderildi(e) {
   e.preventDefault();
   if (!kilitSeciliPersonel) return;
+  if (!kilitSeciliPersonel.email) {
+    bildirimGoster("Bu personelin e-posta adresi kayıtlı değil — admin panelinden kontrol edin.", "hata");
+    return;
+  }
   const sifreInput = document.getElementById("kilit-sifre-input");
   const gonderButon = e.target.querySelector('button[type="submit"]');
   gonderButon.disabled = true;
   try {
+    // NOT: seçilen personelin aktiflik/rol bilgisi zaten canlı senkronize
+    // subePersoneliCache'ten geliyor (picker de sadece bunlardan kuruluyor)
+    // — girişten SONRA ayrıca Firestore'dan tekrar okumaya gerek yok, bu
+    // hem gereksiz bir round-trip hem de (auth token henüz tazelenmeden
+    // gelen) olası bir "izin yok" yarışını ortadan kaldırıyor.
+    //
+    // Yeni oturumu açmadan önce eskisini KAPATIYORUZ — kullanıcı bunu asla
+    // görmez (kilit ekranı zaten her şeyi kaplıyor, sayfa yönlendirmesi
+    // YOK), ama "zaten oturum açıkken üstüne farklı bir hesapla giriş
+    // yapma" durumunun bazı tarayıcı/SDK senaryolarında güvenilmez
+    // olabilmesi ihtimaline karşı normal /login/ akışıyla BİREBİR aynı,
+    // kanıtlanmış sırayı (önce oturum yok, sonra signIn) izliyoruz.
+    await signOut(auth).catch(() => {});
     const cred = await signInWithEmailAndPassword(auth, kilitSeciliPersonel.email, sifreInput.value);
-    const kSnap = await getDoc(doc(db, "kullanicilar", cred.user.uid));
-    if (!kSnap.exists() || kSnap.data().aktif === false || !["kasa", "admin"].includes(kSnap.data().rol)) {
-      throw new Error("Bu hesap adisyon terminaline erişemez.");
-    }
-    const k = kSnap.data();
-    kullanici = { ad: k.ad, subeId: k.subeId || kullanici.subeId, rol: k.rol };
+    // Girişten hemen sonra Firestore'a istek atılacağı için kimlik doğrulama
+    // token'ının ZORLA tazelenmesini bekliyoruz — aksi halde ilk istek(ler)
+    // token henüz güncellenmeden gidip "izin yok" hatası verebiliyordu.
+    await cred.user.getIdToken(true);
+    kullanici = { ad: kilitSeciliPersonel.ad, subeId: kilitSeciliPersonel.subeId || kullanici.subeId, rol: kilitSeciliPersonel.rol };
     document.getElementById("kasa-baslik").textContent = `🧾 ${kullanici.ad}`;
-    await puantajOtomatikGiris(cred.user.uid);
+    await puantajOtomatikGiris(auth.currentUser.uid);
     kilitGizle();
     bildirimGoster(`Hoş geldiniz, ${kullanici.ad}!`, "basari");
   } catch (err) {
-    const mesaj = ["auth/wrong-password", "auth/invalid-credential", "auth/invalid-login-credentials"].includes(err.code)
-      ? "Şifre hatalı."
-      : err.message;
-    bildirimGoster("Giriş başarısız: " + mesaj, "hata");
+    console.error("Kilit ekranı girişi başarısız:", err);
+    bildirimGoster("Giriş başarısız: " + girisHataMesaji(err), "hata");
     sifreInput.value = "";
     sifreInput.focus();
   } finally {
