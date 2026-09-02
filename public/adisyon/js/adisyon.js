@@ -2,6 +2,7 @@ import { db, auth } from "../../shared/firebase-config.js";
 import {
   collection, doc, getDoc, getDocs, updateDoc, addDoc, onSnapshot, query, where, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import { sayfaKorumaBaslat, cikisYap } from "../../shared/auth.js";
 import { siparisOlustur, siparisiOnayla, siparisiGuncelle, siparisiIptalEt } from "../../shared/siparis.js";
 import { mutfakFisiYazdir, musteriFisiYazdir } from "../../shared/fis.js";
@@ -107,7 +108,14 @@ async function baslat() {
   document.getElementById("yukleniyor-ekrani").remove();
   document.getElementById("sayfa").hidden = false;
   document.getElementById("kasa-baslik").textContent = `🧾 ${kullanici.ad}`;
-  document.getElementById("cikis-buton").addEventListener("click", cikisYap);
+  // "Çıkış" artık sistemden ATMAZ — vardiyanızı (puantaj çıkışınızı) kapatıp
+  // terminali kilitler; yeni gelen personel kendi şifresiyle devralır.
+  document.getElementById("cikis-buton").addEventListener("click", async () => {
+    if (!confirm("Vardiyanız sona erecek ve çıkış saatiniz puantaja kaydedilecek. Devam edilsin mi?")) return;
+    await puantajOtomatikCikis(auth.currentUser?.uid);
+    sessionStorage.setItem("adisyon_kilitli", "1");
+    kilitGoster();
+  });
   document.getElementById("sepet-bar").addEventListener("click", sepetModalGoster);
 
   let subeAdi = "Tüm Şubeler";
@@ -154,6 +162,13 @@ async function baslat() {
     garsonlarCache = subePersoneliCache.filter((p) => p.rol === "garson");
     if (garsonAtamaPaneliAcik) renderGarsonAtamaPaneli();
     if (aktifSekme === "puantaj") renderPuantajPaneli();
+    // Kilit ekranı personel seçim adımındaysa (henüz şifre formuna
+    // geçilmediyse) listeyi güncel personel önbelleğiyle tazele.
+    const kilitEkraniAcik = !document.getElementById("kilit-ekrani").hidden;
+    const sifreFormuGizli = document.getElementById("kilit-form").hidden;
+    if (kilitEkraniAcik && sifreFormuGizli) {
+      kilitPersonelListesiCiz();
+    }
   });
 
   if (kullanici.subeId) {
@@ -257,6 +272,87 @@ async function baslat() {
   });
 
   document.getElementById("gun-sonu-goster-buton").addEventListener("click", () => gunSonuModaliGoster());
+
+  document.getElementById("kilit-geri-buton").addEventListener("click", () => kilitPersonelListesiCiz());
+  document.getElementById("kilit-farkli-hesap-buton").addEventListener("click", () => cikisYap());
+  document.getElementById("kilit-form").addEventListener("submit", kilitFormGonderildi);
+
+  // Sayfa "Çıkış"/"Gün Sonu" sonrası kilitli bırakılmışsa (bkz. sessionStorage
+  // — bilinçli olarak signOut yapmıyoruz, sadece bu ekranı kilitliyoruz),
+  // yeniden açıldığında/yenilendiğinde kilit ekranı hemen geri gelmeli.
+  // Aksi halde bu, terminale ilk kez giren (veya sayfayı yenileyen) kişinin
+  // OTOMATİK puantaj girişidir.
+  if (sessionStorage.getItem("adisyon_kilitli") === "1") {
+    kilitGoster();
+  } else if (auth.currentUser) {
+    await puantajOtomatikGiris(auth.currentUser.uid);
+  }
+}
+
+let kilitSeciliPersonel = null;
+
+function kilitPersonelListesiCiz() {
+  const listeEl = document.getElementById("kilit-personel-liste");
+  const formEl = document.getElementById("kilit-form");
+  formEl.hidden = true;
+  listeEl.hidden = false;
+  const kasaPersoneli = subePersoneliCache.filter((p) => p.rol === "kasa");
+  if (kasaPersoneli.length === 0) {
+    listeEl.innerHTML = `<div class="bos-durum">Şubenize tanımlı kasa personeli bulunamadı. "Farklı bir hesapla giriş yap"ı kullanın.</div>`;
+    return;
+  }
+  listeEl.innerHTML = kasaPersoneli.map((p) => `<div class="kilit-personel-cip" data-personel="${p.id}">${escapeHtml(p.ad)}</div>`).join("");
+  listeEl.querySelectorAll("[data-personel]").forEach((cip) => cip.addEventListener("click", () => {
+    kilitSeciliPersonel = kasaPersoneli.find((p) => p.id === cip.dataset.personel);
+    document.getElementById("kilit-secili-personel-adi").textContent = kilitSeciliPersonel.ad;
+    document.getElementById("kilit-sifre-input").value = "";
+    listeEl.hidden = true;
+    formEl.hidden = false;
+    document.getElementById("kilit-sifre-input").focus();
+  }));
+}
+
+function kilitGoster() {
+  document.getElementById("kilit-ekrani").hidden = false;
+  kilitPersonelListesiCiz();
+}
+
+function kilitGizle() {
+  document.getElementById("kilit-ekrani").hidden = true;
+  sessionStorage.removeItem("adisyon_kilitli");
+}
+
+// Kilit ekranında şifre girilince: oturum sessizce YENİ personele devredilir
+// (signOut olmadan doğrudan signIn — Firebase eski oturumu otomatik
+// değiştirir), rol/şube bilgisi tazelenir ve otomatik puantaj girişi açılır.
+async function kilitFormGonderildi(e) {
+  e.preventDefault();
+  if (!kilitSeciliPersonel) return;
+  const sifreInput = document.getElementById("kilit-sifre-input");
+  const gonderButon = e.target.querySelector('button[type="submit"]');
+  gonderButon.disabled = true;
+  try {
+    const cred = await signInWithEmailAndPassword(auth, kilitSeciliPersonel.email, sifreInput.value);
+    const kSnap = await getDoc(doc(db, "kullanicilar", cred.user.uid));
+    if (!kSnap.exists() || kSnap.data().aktif === false || !["kasa", "admin"].includes(kSnap.data().rol)) {
+      throw new Error("Bu hesap adisyon terminaline erişemez.");
+    }
+    const k = kSnap.data();
+    kullanici = { ad: k.ad, subeId: k.subeId || kullanici.subeId, rol: k.rol };
+    document.getElementById("kasa-baslik").textContent = `🧾 ${kullanici.ad}`;
+    await puantajOtomatikGiris(cred.user.uid);
+    kilitGizle();
+    bildirimGoster(`Hoş geldiniz, ${kullanici.ad}!`, "basari");
+  } catch (err) {
+    const mesaj = ["auth/wrong-password", "auth/invalid-credential", "auth/invalid-login-credentials"].includes(err.code)
+      ? "Şifre hatalı."
+      : err.message;
+    bildirimGoster("Giriş başarısız: " + mesaj, "hata");
+    sifreInput.value = "";
+    sifreInput.focus();
+  } finally {
+    gonderButon.disabled = false;
+  }
 }
 
 // Seçili tarih için bir personelin puantaj kaydını bulur (o gün için tek
@@ -268,24 +364,25 @@ function personelinGunlukKaydi(personelId, tarih) {
     || null;
 }
 
+// Puantaj artık ELLE "Giriş Yap/Çıkış Yap" butonlarıyla değil, OTOMATİK
+// olarak işliyor: bu terminale kendi şifresiyle giriş yapmak = işe giriş,
+// "Çıkış" ile ayrılmak = işten çıkış (bkz. puantajOtomatikGiris/Cikis ve
+// kilitGoster akışı aşağıda). Bu panel artık sadece bir GÖRÜNTÜLEME +
+// düzeltme aracı — kafa karıştıran anlık aksiyon butonları kaldırıldı.
 function renderPuantajPaneli() {
   const el = document.getElementById("puantaj-listesi");
   if (subePersoneliCache.length === 0) {
     el.innerHTML = `<div class="bos-durum">Şubenize tanımlı personel bulunamadı.</div>`;
     return;
   }
-  const bugunMu = puantajSeciliTarih === tarihAnahtari();
   const liste = subePersoneliCache.slice().sort((a, b) => (a.ad || "").localeCompare(b.ad || "", "tr"));
   el.innerHTML = liste.map((p) => {
     const kayit = personelinGunlukKaydi(p.id, puantajSeciliTarih);
     let durumHtml;
     if (!kayit) {
-      durumHtml = bugunMu
-        ? `<span class="puantaj-durum bos-kayit">Henüz gelmedi</span><button class="btn-yesil btn-kucuk" data-giris="${p.id}">Giriş Yap</button>`
-        : `<span class="puantaj-durum bos-kayit">Kayıt yok</span><button class="btn-ikincil btn-kucuk" data-manuel-ekle="${p.id}">+ Ekle</button>`;
+      durumHtml = `<span class="puantaj-durum bos-kayit">Kayıt yok</span><button class="btn-ikincil btn-kucuk" data-manuel-ekle="${p.id}">+ Ekle</button>`;
     } else if (!kayit.cikisZamani) {
-      durumHtml = `<span class="puantaj-durum geldi">${saatFormat(kayit.girisZamani)}'te geldi${kayit.gecGeldi ? ` <b class="puantaj-gec">(geç)</b>` : ""}</span>` +
-        (bugunMu ? `<button class="btn-kirmizi btn-kucuk" data-cikis="${kayit.id}">Çıkış Yap</button>` : "") +
+      durumHtml = `<span class="puantaj-durum geldi">${saatFormat(kayit.girisZamani)}'te geldi, hâlâ işte${kayit.gecGeldi ? ` <b class="puantaj-gec">(geç)</b>` : ""}</span>` +
         `<button class="btn-ikincil btn-kucuk" data-duzenle="${kayit.id}">✏️ Düzenle</button>`;
     } else {
       durumHtml = `<span class="puantaj-durum tamam">${saatFormat(kayit.girisZamani)} → ${saatFormat(kayit.cikisZamani)}${kayit.gecGeldi ? ` <b class="puantaj-gec">geç geldi</b>` : ""}${kayit.erkenCikti ? ` <b class="puantaj-erken">erken çıktı</b>` : ""}</span>` +
@@ -298,60 +395,76 @@ function renderPuantajPaneli() {
     </div>`;
   }).join("");
 
-  el.querySelectorAll("[data-giris]").forEach((b) => b.addEventListener("click", () => girisKaydet(b.dataset.giris)));
-  el.querySelectorAll("[data-cikis]").forEach((b) => b.addEventListener("click", () => cikisKaydet(b.dataset.cikis)));
   el.querySelectorAll("[data-manuel-ekle]").forEach((b) => b.addEventListener("click", () => puantajManuelModaliGoster(null, b.dataset.manuelEkle)));
   el.querySelectorAll("[data-duzenle]").forEach((b) => b.addEventListener("click", () => {
     puantajManuelModaliGoster(puantajTumKayitlarCache.find((k) => k.id === b.dataset.duzenle));
   }));
 }
 
-async function girisKaydet(personelId) {
-  const p = subePersoneliCache.find((x) => x.id === personelId);
-  if (!p) return;
-  const simdi = new Date();
-  let gecGeldi = false;
-  if (p.mesaiBaslangic) {
-    const [hh, mm] = p.mesaiBaslangic.split(":").map(Number);
-    const beklenen = new Date(simdi);
-    beklenen.setHours(hh, mm + 5, 0, 0); // 5 dk tolerans
-    gecGeldi = simdi > beklenen;
-  }
+// Bir personelin mesai saatlerine göre "geç geldi" hesaplar (5 dk tolerans).
+function gecGeldiMi(mesaiBaslangic, simdi) {
+  if (!mesaiBaslangic) return false;
+  const [hh, mm] = mesaiBaslangic.split(":").map(Number);
+  const beklenen = new Date(simdi);
+  beklenen.setHours(hh, mm + 5, 0, 0);
+  return simdi > beklenen;
+}
+function erkenCiktiMi(mesaiBitis, simdi) {
+  if (!mesaiBitis) return false;
+  const [hh, mm] = mesaiBitis.split(":").map(Number);
+  const beklenen = new Date(simdi);
+  beklenen.setHours(hh, mm, 0, 0);
+  return simdi < beklenen;
+}
+
+// Terminale şifreyle girişte OTOMATİK puantaj girişi açar — aynı gün için
+// zaten AÇIK bir kaydı varsa (ör. tarayıcı kapanıp düzgün çıkış yapılmadan
+// tekrar girildiyse) yeni kayıt açmaz, mevcut vardiyaya devam eder.
+async function puantajOtomatikGiris(uid) {
   try {
+    const kSnap = await getDoc(doc(db, "kullanicilar", uid));
+    if (!kSnap.exists()) return;
+    const p = kSnap.data();
+    const bugun = tarihAnahtari();
+    const mevcutSnap = await getDocs(query(collection(db, "puantaj"), where("personelId", "==", uid)));
+    const acikVarMi = mevcutSnap.docs.some((d) => d.data().tarih === bugun && !d.data().cikisZamani);
+    if (acikVarMi) return;
+    const simdi = new Date();
     await addDoc(collection(db, "puantaj"), {
-      personelId: p.id,
+      personelId: uid,
       personelAdi: p.ad,
       rol: p.rol,
-      subeId: kullanici.subeId || p.subeId || null,
+      subeId: p.subeId || null,
       subeAdi: subeDokumani?.ad || "",
-      tarih: tarihAnahtari(),
+      tarih: bugun,
       girisZamani: serverTimestamp(),
       cikisZamani: null,
-      gecGeldi,
+      gecGeldi: gecGeldiMi(p.mesaiBaslangic, simdi),
       erkenCikti: false,
+      otomatik: true,
     });
-    bildirimGoster(`${p.ad} giriş yaptı.`, "basari");
   } catch (err) {
-    bildirimGoster("Hata: " + err.message, "hata");
+    console.error("Puantaj otomatik giriş kaydedilemedi:", err);
   }
 }
 
-async function cikisKaydet(puantajId) {
-  const kayit = puantajTumKayitlarCache.find((k) => k.id === puantajId);
-  const p = subePersoneliCache.find((x) => x.id === kayit?.personelId);
-  const simdi = new Date();
-  let erkenCikti = false;
-  if (p?.mesaiBitis) {
-    const [hh, mm] = p.mesaiBitis.split(":").map(Number);
-    const beklenen = new Date(simdi);
-    beklenen.setHours(hh, mm, 0, 0);
-    erkenCikti = simdi < beklenen;
-  }
+// "Çıkış" veya "Gün Sonu" ile terminalden ayrılırken bugünün AÇIK puantaj
+// kaydını kapatır. Açık kayıt yoksa (ör. admin hesabıysa) sessizce geçer.
+async function puantajOtomatikCikis(uid) {
+  if (!uid) return;
   try {
-    await updateDoc(doc(db, "puantaj", puantajId), { cikisZamani: serverTimestamp(), erkenCikti });
-    bildirimGoster("Çıkış kaydedildi.", "basari");
+    const bugun = tarihAnahtari();
+    const mevcutSnap = await getDocs(query(collection(db, "puantaj"), where("personelId", "==", uid)));
+    const acikKayit = mevcutSnap.docs.map((d) => ({ id: d.id, ...d.data() })).find((k) => k.tarih === bugun && !k.cikisZamani);
+    if (!acikKayit) return;
+    const kSnap = await getDoc(doc(db, "kullanicilar", uid));
+    const p = kSnap.exists() ? kSnap.data() : {};
+    await updateDoc(doc(db, "puantaj", acikKayit.id), {
+      cikisZamani: serverTimestamp(),
+      erkenCikti: erkenCiktiMi(p.mesaiBitis, new Date()),
+    });
   } catch (err) {
-    bildirimGoster("Hata: " + err.message, "hata");
+    console.error("Puantaj otomatik çıkış kaydedilemedi:", err);
   }
 }
 
@@ -646,11 +759,17 @@ function gunSonuModaliGoster() {
         sonGunSonuZamani: serverTimestamp(),
         sonGunSonuTarihi: tarihAnahtari(),
       });
-      bildirimGoster("Vardiya kapatıldı ve merkeze gönderildi. Oturum kapatılıyor, yeni gelen personel kendi şifresiyle giriş yapmalı...", "basari");
+      bildirimGoster("Vardiya kapatıldı ve merkeze gönderildi. Terminal kilitleniyor, yeni gelen personel kendi şifresiyle giriş yapmalı...", "basari");
       katman.remove();
       // Gün sonu kapandıktan sonra terminal yeniden kullanılabilir olmamalı —
-      // her gelen personel adisyon hesabını kendi şifresiyle devralmalı.
-      setTimeout(() => { cikisYap(); }, 1500);
+      // ama sistemden ATILMAZ, sadece kilitlenir (bkz. kilitGoster). Puantaj
+      // çıkışı da bu vardiyayı kapatan kişi için otomatik kaydedilir.
+      const kapatanUid = auth.currentUser?.uid;
+      setTimeout(async () => {
+        await puantajOtomatikCikis(kapatanUid);
+        sessionStorage.setItem("adisyon_kilitli", "1");
+        kilitGoster();
+      }, 1500);
     } catch (err) {
       bildirimGoster("Hata: " + err.message, "hata");
       buton.disabled = false;

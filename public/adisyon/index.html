@@ -94,6 +94,24 @@
     </button>
   </div>
 
+  <!-- Terminal kilidi: vardiya/çıkış sonrası sistemden ATILMADAN, sadece bu
+       ekran üstüne kilit gelir — yeni gelen personel kendi adını seçip
+       şifresini girer, bu hem oturumu devralır hem de puantaj girişini
+       otomatik kaydeder. -->
+  <div id="kilit-ekrani" class="modal-katman yazdirma-gizle" style="z-index:9999;" hidden>
+    <div class="modal-kutu kilit-kutu">
+      <h2>🔒 Çalışmak için şifrenizi girin</h2>
+      <div id="kilit-personel-liste" class="kilit-personel-liste"></div>
+      <form id="kilit-form" hidden>
+        <p id="kilit-secili-personel-adi" class="kilit-secili-ad"></p>
+        <div class="form-alan"><label>Şifre</label><input id="kilit-sifre-input" type="password" required /></div>
+        <button type="submit" class="btn-birincil btn-tam">Giriş Yap</button>
+        <button type="button" id="kilit-geri-buton" class="btn-ikincil btn-tam" style="margin-top:8px;">← Geri</button>
+      </form>
+      <button type="button" id="kilit-farkli-hesap-buton" class="btn-ikincil btn-tam" style="margin-top:16px;">Farklı bir hesapla giriş yap</button>
+    </div>
+  </div>
+
   <div id="fis-yazdirma" class="yazdirilacak" style="display:none;"></div>
 
   <script type="module" src="./js/adisyon.js"></script>

@@ -197,3 +197,16 @@ body { background: var(--renk-arkaplan); }
   .odeme-satiri .odeme-satiri-sil { width: 100%; }
   .detay-eylemler { flex-direction: column; }
 }
+
+/* Terminal kilit ekranı — "Çıkış"/"Gün Sonu" sonrası sistemden atmadan
+   sadece bu ekranı üste kaplar; yeni gelen personel adını seçip şifresini
+   girer (bu, hem oturumu devralır hem otomatik puantaj girişi açar). */
+.kilit-kutu { max-width: 380px; text-align: center; }
+.kilit-kutu h2 { font-size: 18px; margin-bottom: 18px; }
+.kilit-personel-liste { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 6px; }
+.kilit-personel-cip {
+  padding: 14px 20px; border-radius: 12px; background: var(--renk-ikincil-bg); font-weight: 700;
+  font-size: 15px; cursor: pointer; border: 2px solid transparent; user-select: none; min-width: 100px;
+}
+.kilit-personel-cip:active { transform: scale(0.97); border-color: var(--renk-ana); }
+.kilit-secili-ad { font-size: 17px; font-weight: 800; margin-bottom: 4px; }
