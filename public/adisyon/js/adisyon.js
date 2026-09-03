@@ -65,6 +65,15 @@ let puantajTumKayitlarCache = []; // şubenin TÜM puantaj kayıtları (tarihe g
 let kasaHareketleriTumCache = [];
 let adisyonlarTumCache = [];
 let subeDokumani = null;
+// ── VARDİYA KİLİDİ / "Çalışmak için şifrenizi girin" ekranı ──────────────
+// Kullanıcı isteğiyle TAMAMEN DEVRE DIŞI. Bu bayrak false olduğu sürece:
+//   • Açılışta kilit ekranı ASLA gösterilmez (takılı sessionStorage bayrağı
+//     da temizlenir).
+//   • "Çıkış" herkes için normal oturum kapatmadır.
+//   • "Gün Sonu" terminali kilitlemez.
+// Puantaj otomatik giriş/çıkış (görünmez, ekran istemez) çalışmaya devam eder.
+// Özelliği geri açmak için: true yap (şube ayarı vardiyaKilidiAktif yine de gerekir).
+const KILIT_OZELLIGI_AKTIF = false;
 // Şube ayarı: açıkken kasa personeli "Çıkış"/"Gün Sonu" yapınca adisyon
 // terminali kilitlenir (çok personelli şube). Kapalıyken "Çıkış" = normal
 // oturum kapatma. Admin bu ayardan bağımsız olarak ASLA kilitlenmez.
@@ -122,26 +131,19 @@ async function baslat() {
   document.getElementById("yukleniyor-ekrani").remove();
   document.getElementById("sayfa").hidden = false;
   document.getElementById("kasa-baslik").textContent = `🧾 ${kullanici.ad}`;
-  // "Çıkış" davranışı:
-  //  • Admin (işletme sahibi): her zaman normal oturum kapatma — adisyon
-  //    onun için bir "vardiya" değildir, terminal kilitlenmez.
-  //  • Kasa personeli + şubede "vardiya kilidi" AÇIK: vardiyayı (puantaj
-  //    çıkışını) kapatıp terminali kilitler, yeni gelen kendi şifresiyle
-  //    devralır (çok personelli şube).
-  //  • Kasa personeli + kilit KAPALI: puantaj çıkışını kaydeder ve normal
-  //    oturum kapatma yapar.
+  // "Çıkış": herkes için normal oturum kapatma. (Vardiya kilidi özelliği
+  // devre dışı — bkz. KILIT_OZELLIGI_AKTIF.) Kasa personelinin puantaj
+  // çıkışı görünmez şekilde kaydedilir, sonra login'e dönülür.
   document.getElementById("cikis-buton").addEventListener("click", async () => {
-    if (kullanici.rol === "admin") { cikisYap(); return; }
-    if (vardiyaKilidiAktif) {
+    if (KILIT_OZELLIGI_AKTIF && kullanici.rol !== "admin" && vardiyaKilidiAktif) {
       if (!confirm("Vardiyanız sona erecek ve çıkış saatiniz puantaja kaydedilecek. Terminal kilitlenecek. Devam edilsin mi?")) return;
       await puantajOtomatikCikis(auth.currentUser?.uid);
       sessionStorage.setItem("adisyon_kilitli", "1");
       kilitGoster();
-    } else {
-      if (!confirm("Çıkış yapılacak ve çıkış saatiniz puantaja kaydedilecek. Devam edilsin mi?")) return;
-      await puantajOtomatikCikis(auth.currentUser?.uid);
-      cikisYap();
+      return;
     }
+    if (kullanici.rol !== "admin") await puantajOtomatikCikis(auth.currentUser?.uid);
+    cikisYap();
   });
   document.getElementById("sepet-bar").addEventListener("click", sepetModalGoster);
 
@@ -316,16 +318,19 @@ async function baslat() {
 
   document.getElementById("gun-sonu-goster-buton").addEventListener("click", () => gunSonuModaliGoster());
 
-  document.getElementById("kilit-geri-buton").addEventListener("click", () => kilitPersonelListesiCiz());
-  document.getElementById("kilit-farkli-hesap-buton").addEventListener("click", () => cikisYap());
-  document.getElementById("kilit-form").addEventListener("submit", kilitFormGonderildi);
+  // Kilit ekranı DOM dinleyicileri — özellik devre dışıyken bile zararsız
+  // (ekran hiç açılmıyor); yine de yalnızca özellik açıkken bağlanır.
+  if (KILIT_OZELLIGI_AKTIF) {
+    document.getElementById("kilit-geri-buton").addEventListener("click", () => kilitPersonelListesiCiz());
+    document.getElementById("kilit-farkli-hesap-buton").addEventListener("click", () => cikisYap());
+    document.getElementById("kilit-form").addEventListener("submit", kilitFormGonderildi);
+  }
 
-  // Sayfa "Çıkış"/"Gün Sonu" sonrası (sessionStorage bayrağı) kilit ekranı
-  // yeniden açılışta geri gelmeli — AMA yalnızca ŞUBEDE "vardiya kilidi"
-  // AÇIKKEN ve giren kişi admin DEĞİLKEN. Diğer tüm durumlarda kilit bayrağı
-  // temizlenir ve bu, terminale giren kişinin OTOMATİK puantaj girişidir
-  // (admin hariç — onun vardiyası yok).
-  const kilitliGosterilsin = sessionStorage.getItem("adisyon_kilitli") === "1"
+  // Vardiya kilidi özelliği kapalı: takılı kalmış "adisyon_kilitli" bayrağını
+  // HER KOŞULDA temizle ve (admin değilse) görünmez otomatik puantaj girişini
+  // yap. Özellik açıksa eski davranış (bayrak + şube ayarı + admin kontrolü).
+  const kilitliGosterilsin = KILIT_OZELLIGI_AKTIF
+    && sessionStorage.getItem("adisyon_kilitli") === "1"
     && kullanici.rol !== "admin" && vardiyaKilidiAktif;
   if (kilitliGosterilsin) {
     kilitGoster();
@@ -840,10 +845,9 @@ function gunSonuModaliGoster() {
         sonGunSonuZamani: serverTimestamp(),
         sonGunSonuTarihi: tarihAnahtari(),
       });
-      // Terminal yalnızca şubede "vardiya kilidi" AÇIKKEN ve kapatan kişi
-      // admin DEĞİLKEN kilitlenir. Puantaj çıkışı, kapatan kasa personeli için
-      // her koşulda otomatik kaydedilir.
-      const kilitlenecek = kullanici.rol !== "admin" && vardiyaKilidiAktif;
+      // Vardiya kilidi özelliği devre dışı — gün sonu terminali KİLİTLEMEZ.
+      // Kapatan kasa personeli için puantaj çıkışı görünmez kaydedilir.
+      const kilitlenecek = KILIT_OZELLIGI_AKTIF && kullanici.rol !== "admin" && vardiyaKilidiAktif;
       bildirimGoster(
         kilitlenecek
           ? "Vardiya kapatıldı ve merkeze gönderildi. Terminal kilitleniyor, yeni gelen personel kendi şifresiyle giriş yapmalı..."

@@ -70,8 +70,6 @@ function formGoster(sube = null) {
         <div class="form-alan"><label>Telefon</label><input name="telefon" value="${sube ? escapeHtml(sube.telefon || "") : ""}" /></div>
         <div class="form-alan"><label>Sıra</label><input name="sira" type="number" value="${sube ? sube.sira ?? 0 : subelerCache.length}" /></div>
         <div class="form-alan"><label><input type="checkbox" name="aktif" style="width:auto;" ${!sube || sube.aktif !== false ? "checked" : ""}/> Aktif</label></div>
-        <div class="form-alan"><label><input type="checkbox" name="vardiyaKilidiAktif" style="width:auto;" ${sube && sube.vardiyaKilidiAktif ? "checked" : ""}/> Adisyon vardiya kilidi</label>
-          <small style="color:var(--renk-yazi-soluk);">Açıkken: kasa personeli "Çıkış" veya "Gün Sonu" yaptığında adisyon terminali kilitlenir, yeni gelen kendi şifresiyle devralır (çok personelli şube için). Kapalıyken: "Çıkış" normal oturum kapatmadır. Admin her koşulda kilitlenmez.</small></div>
         <hr style="border:none;border-top:1px solid var(--renk-kenar);margin:14px 0;">
         <p style="font-weight:700;font-size:13px;margin:0 0 8px;">💳 QR Menü Ödeme Bilgileri (opsiyonel)</p>
         <div class="form-alan"><label>Ödeme Linki (iyzico/PayTR/Param linki)</label><input name="odemeLinki" value="${sube ? escapeHtml(sube.odemeLinki || "") : ""}" placeholder="https://..." /></div>
@@ -96,7 +94,8 @@ function formGoster(sube = null) {
       telefon: fd.get("telefon").trim(),
       sira: Number(fd.get("sira")) || 0,
       aktif: fd.get("aktif") === "on",
-      vardiyaKilidiAktif: fd.get("vardiyaKilidiAktif") === "on",
+      // Vardiya kilidi özelliği devre dışı — her kayıtta false'a çekilir.
+      vardiyaKilidiAktif: false,
       odemeLinki: fd.get("odemeLinki").trim(),
       iban: fd.get("iban").trim(),
       ibanAdi: fd.get("ibanAdi").trim(),
