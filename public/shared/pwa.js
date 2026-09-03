@@ -10,9 +10,12 @@ export function pwaBaslat() {
   if (!window.localStorage || window.localStorage.getItem("pwaAktif") !== "1") return;
   if (window.localStorage.getItem("kullanEmulator") === "1") return;
   window.addEventListener("load", () => {
-    // sw.js her zaman site kökündedir; alt yolda yayınlanan projeler için
-    // kök göreli ("/sw.js") kaydı doğru kapsamı verir.
-    navigator.serviceWorker.register("/sw.js").catch((err) => {
+    // sw.js, public/ kökünde. Site bir alt yolda (ör. GitHub Pages proje
+    // sayfası: /adisyon-qr-admin/) yayınlanmış olabileceği için mutlak
+    // "/sw.js" YANLIŞ olur — bu dosyanın konumuna (shared/) göre "../sw.js"
+    // her koşulda doğru URL'yi ve kapsamı (public kökü) verir.
+    const swUrl = new URL("../sw.js", import.meta.url);
+    navigator.serviceWorker.register(swUrl).catch((err) => {
       console.info("[pwa] Service worker kaydedilemedi (opsiyonel):", err.message);
     });
   });

@@ -8,25 +8,27 @@
 // STATİK dosyaları (HTML/CSS/JS) ve Firebase SDK modüllerini önbelleğe alır;
 // Firestore/Auth ağ isteklerine (googleapis.com) hiç dokunmaz.
 // ─────────────────────────────────────────────────────────────────────────
-const SURUM = "v1";
+const SURUM = "v2";
 const KABUK = `kabuk-${SURUM}`;
 
-// İlk kurulumda önbelleğe alınacak kendi dosyalarımız. Biri erişilemezse
-// kurulum bozulmasın diye tek tek, hataya dayanıklı eklenir.
-const ON_YUKLE = [
-  "/adisyon", "/adisyon/css/adisyon.css", "/adisyon/js/adisyon.js",
-  "/garson", "/garson/css/garson.css", "/garson/js/garson.js",
-  "/mutfak", "/mutfak/css/mutfak.css", "/mutfak/js/mutfak.js",
-  "/menu", "/menu/css/menu.css", "/menu/js/menu.js",
-  "/login", "/login/login.js",
-  "/shared/common.css", "/shared/utils.js", "/shared/auth.js",
-  "/shared/firebase-config.js", "/shared/siparis.js", "/shared/fis.js", "/shared/pwa.js",
+// İlk kurulumda önbelleğe alınacak kendi dosyalarımız (SW kapsamına GÖRELİ —
+// site bir alt yolda yayınlanmış olabilir). Biri erişilemezse kurulum
+// bozulmasın diye tek tek, hataya dayanıklı eklenir.
+const ON_YUKLE_GORELI = [
+  "adisyon/", "adisyon/css/adisyon.css", "adisyon/js/adisyon.js",
+  "garson/", "garson/css/garson.css", "garson/js/garson.js",
+  "mutfak/", "mutfak/css/mutfak.css", "mutfak/js/mutfak.js",
+  "menu/", "menu/css/menu.css", "menu/js/menu.js",
+  "login/", "login/login.js",
+  "shared/common.css", "shared/utils.js", "shared/auth.js",
+  "shared/firebase-config.js", "shared/siparis.js", "shared/fis.js", "shared/pwa.js",
 ];
 
 self.addEventListener("install", (e) => {
+  const kok = self.registration.scope; // ör. https://host/adisyon-qr-admin/
   e.waitUntil(
     caches.open(KABUK)
-      .then((c) => Promise.all(ON_YUKLE.map((u) => c.add(u).catch(() => {}))))
+      .then((c) => Promise.all(ON_YUKLE_GORELI.map((u) => c.add(new URL(u, kok)).catch(() => {}))))
       .then(() => self.skipWaiting())
   );
 });
