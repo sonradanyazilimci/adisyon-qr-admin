@@ -366,7 +366,9 @@ function kilitPersonelListesiCiz() {
 }
 
 function kilitGoster() {
-  document.getElementById("kilit-ekrani").hidden = false;
+  const el = document.getElementById("kilit-ekrani");
+  el.style.display = ""; // HTML'deki inline display:none'ı temizle (bkz. index.html)
+  el.hidden = false;
   kilitPersonelListesiCiz();
 }
 

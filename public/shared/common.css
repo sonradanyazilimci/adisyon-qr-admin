@@ -38,6 +38,13 @@
 
 * { box-sizing: border-box; }
 
+/* `hidden` attribute HER ZAMAN gizler. Bir author kuralı (ör. .modal-katman
+   { display:flex }) yoksa tarayıcının varsayılan [hidden]{display:none}'ı
+   yeterli; AMA .modal-katman gibi display atayan sınıflar bunu ezip
+   #kilit-ekrani gibi statik+hidden elemanları görünür bırakıyordu. Bu tek
+   satır o sınıf hatasını kökten kapatır. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   font-family: "Segoe UI", "Trebuchet MS", system-ui, -apple-system, sans-serif;
