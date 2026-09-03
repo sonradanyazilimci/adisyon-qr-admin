@@ -15,7 +15,7 @@ import {
   initializeFirestore,
   getFirestore,
   persistentLocalCache,
-  persistentMultipleTabManager,
+  persistentSingleTabManager,
   connectFirestoreEmulator,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
@@ -34,24 +34,29 @@ const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig);
 
-// Firestore OFFLINE kalıcı önbellek: bağlantı koptuğunda okumalar
-// önbellekten sürer, yapılan yazılar (addDoc/setDoc/updateDoc) IndexedDB'de
-// kuyruğa alınır ve bağlantı gelince OTOMATİK gönderilir. Böylece adisyon
-// terminali kısa internet kesintilerinde çalışmaya devam eder.
-// NOT: runTransaction (stok düşen "yeni sipariş oluştur") çevrimdışı
-// ÇALIŞMAZ — sunucu turu gerektirir; o işlem bağlantı gelince tekrar
-// denenmelidir (kullanıcıya net hata gösterilir).
-// persistentMultipleTabManager: aynı cihazda birden fazla sekme (ör. adisyon
-// + mutfak) açıkken önbelleği paylaşırlar, "sadece tek sekme" hatası olmaz.
+// Firestore OFFLINE kalıcı önbellek: bağlantı koptuğunda okumalar önbellekten
+// sürer, yapılan yazılar (addDoc/updateDoc) IndexedDB'de kuyruğa alınır ve
+// bağlantı gelince OTOMATİK gönderilir.
+//
+// ÖNEMLİ: Kalıcı önbellek yalnızca OPT-IN. Bazı ortamlarda (IndexedDB kısıtlı,
+// bozuk/askıda kalmış eski sekme kilidi vb.) persistent cache ilk Firestore
+// okumasını askıya alıp "giriş yapılamıyor" gibi görünen bir kilitlenmeye yol
+// açabiliyor. Bu yüzden VARSAYILAN ağ modudur; önbelleği açmak için tarayıcı
+// konsoluna: localStorage.setItem('cevrimdisiOnbellek','1') yazıp yenileyin.
+// runTransaction (stok düşen "yeni sipariş") her koşulda çevrimdışı çalışmaz.
 let _db;
-try {
-  _db = initializeFirestore(app, {
-    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-  });
-} catch (err) {
-  // IndexedDB kapalı/erişilemez (ör. gizli sekme, eski tarayıcı) — çevrimdışı
-  // önbellek olmadan devam et.
-  console.warn("[firebase-config] Çevrimdışı önbellek açılamadı, ağ moduyla devam:", err);
+const onbellekIstendi = typeof window !== "undefined" && window.localStorage
+  && window.localStorage.getItem("cevrimdisiOnbellek") === "1";
+if (onbellekIstendi) {
+  try {
+    _db = initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({ forceOwnership: true }) }),
+    });
+  } catch (err) {
+    console.warn("[firebase-config] Çevrimdışı önbellek açılamadı, ağ moduyla devam:", err);
+    _db = getFirestore(app);
+  }
+} else {
   _db = getFirestore(app);
 }
 export const db = _db;
