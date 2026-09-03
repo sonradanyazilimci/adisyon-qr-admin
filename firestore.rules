@@ -113,6 +113,11 @@ service cloud.firestore {
     match /urunler/{id} {
       allow read: if true;
       allow write: if rol('admin');
+      // Kasa/garson bir ürünü "tükendi (86)" olarak işaretleyebilir veya geri
+      // alabilir — SADECE bu iki alan. Menüden gizlemez, sadece o an satışa
+      // kapatır (fiyat/kategori/aktiflik gibi alanlara dokunamaz).
+      allow update: if (rol('kasa') || rol('garson'))
+        && sadeceAlanlar(['tukendi', 'tukendiZamani']);
     }
 
     // Hammaddeler / stok. Sipariş oluşturma artık müşteri tarafında stok
@@ -138,14 +143,18 @@ service cloud.firestore {
 
     // Masalar — herkes okuyabilir (QR ile masa doğrulama). Admin masa
     // ekler/siler. Personel masa üzerinde her şeyi güncelleyebilir.
-    // Kimliksiz müşteriye SADECE iki dar kapsamlı işlem izinlidir:
+    // Kimliksiz müşteriye SADECE şu dar kapsamlı işlemler izinlidir:
     //   1) garson çağırma bayrağını true yapmak
-    //   2) sipariş verince masayı "dolu" yapmak
+    //   2) hesap isteme bayrağını true yapmak
+    //   3) ödeme bildirme bayrağını true yapmak
+    //   4) sipariş verince masayı "dolu" yapmak
     match /masalar/{id} {
       allow read: if true;
       allow create, delete: if rol('admin');
       allow update: if personel()
         || (sadeceAlanlar(['garsonCagirildi', 'garsonCagriZamani']) && request.resource.data.garsonCagirildi == true)
+        || (sadeceAlanlar(['hesapIstendi', 'hesapIstemeZamani']) && request.resource.data.hesapIstendi == true)
+        || (sadeceAlanlar(['odemeBildirildi', 'odemeBildirimZamani']) && request.resource.data.odemeBildirildi == true)
         || (sadeceAlanlar(['durum']) && request.resource.data.durum == 'dolu');
     }
 

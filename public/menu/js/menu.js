@@ -2,13 +2,15 @@ import { db } from "../../shared/firebase-config.js";
 import {
   collection, doc, getDoc, onSnapshot, query,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { siparisTaslakOlustur, garsonCagir } from "../../shared/siparis.js";
+import { siparisTaslakOlustur, garsonCagir, hesapIste, odemeBildir } from "../../shared/siparis.js";
+import { pwaBaslat } from "../../shared/pwa.js";
 import {
   paraFormat, escapeHtml, alerjenRozetleriHtml, ALERJEN_LISTESI, bildirimGoster, debounce,
-  kategorilerSirali, kategoriVeAltlariIds, temaBaslat, urunSubedeAktifMi, urunSubeFiyati,
+  kategorilerSirali, kategoriVeAltlariIds, temaBaslat, urunSubedeAktifMi, urunSubeFiyati, urunTukendiMi,
 } from "../../shared/utils.js";
 
 temaBaslat();
+pwaBaslat();
 
 const params = new URLSearchParams(window.location.search);
 const masaId = params.get("masa");
@@ -35,6 +37,23 @@ function sepetYaz(sepet) {
   sepetBarGuncelle();
 }
 let sepet = [];
+
+// Bu cihazdan bu masa için GÖNDERİLEN siparişler (yerel kayıt) — müşteri
+// ne ısmarladığını ve toplam borcunu görebilsin diye. Firestore'dan canlı
+// durum okumak için müşteriye sipariş okuma izni gerekir (güvenlik tercihi);
+// bu yüzden basit ve güvenli yol: kendi cihazında yerel liste.
+function gonderilenAnahtari() { return `qr_gonderilen_${masaId}`; }
+function gonderilenOku() {
+  try { return JSON.parse(localStorage.getItem(gonderilenAnahtari())) || []; } catch { return []; }
+}
+function gonderilenEkle(kayit) {
+  const liste = gonderilenOku();
+  liste.push(kayit);
+  localStorage.setItem(gonderilenAnahtari(), JSON.stringify(liste));
+}
+function gonderilenToplam() {
+  return gonderilenOku().reduce((acc, k) => acc + (Number(k.tutar) || 0), 0);
+}
 
 async function baslat() {
   if (!masaId) {
@@ -87,7 +106,12 @@ async function baslat() {
   }, 200));
 
   document.getElementById("garson-cagir-buton").addEventListener("click", garsonCagirTiklandi);
+  document.getElementById("hesap-iste-buton").addEventListener("click", hesapIsteTiklandi);
   document.getElementById("sepet-bar").addEventListener("click", sepetModalGoster);
+
+  const odeButon = document.getElementById("ode-buton");
+  if (sube?.odemeLinki || sube?.iban || gonderilenOku().length) odeButon.hidden = false;
+  odeButon.addEventListener("click", odemeModalGoster);
 
   sepetBarGuncelle();
 }
@@ -135,18 +159,23 @@ function renderUrunler() {
   }
 
   listeEl.querySelectorAll("[data-urun]").forEach((satir) => {
-    satir.addEventListener("click", () => detayGoster(urunlerCache.find((u) => u.id === satir.dataset.urun)));
+    satir.addEventListener("click", () => {
+      const urun = urunlerCache.find((u) => u.id === satir.dataset.urun);
+      if (urunTukendiMi(urun)) { bildirimGoster(`${urun.ad} şu an tükendi.`, "uyari"); return; }
+      detayGoster(urun);
+    });
   });
 }
 
 function urunSatiriHtml(u) {
+  const tukendi = urunTukendiMi(u);
   return `
-    <div class="urun-satir" data-urun="${u.id}">
+    <div class="urun-satir ${tukendi ? "tukendi" : ""}" data-urun="${u.id}">
       <div class="metin">
         <h3>${escapeHtml(u.ad)}</h3>
         <p class="aciklama">${escapeHtml(u.aciklama || "")}</p>
         <div class="alt-satir">
-          <span class="fiyat">${paraFormat(urunSubeFiyati(u, subeIdEfektif))}</span>
+          <span class="fiyat">${tukendi ? `<span class="urun-tukendi-rozet">TÜKENDİ</span>` : paraFormat(urunSubeFiyati(u, subeIdEfektif))}</span>
           <span class="rozet-satir">${u.kalori ?? "-"} kcal ${alerjenRozetleriHtml(u.alerjenler, u.glutensiz)}</span>
         </div>
       </div>
@@ -290,6 +319,12 @@ async function siparisGonder(katman) {
       urunler: sepet.map((s) => ({ urunId: s.urunId, adet: s.adet, not: s.not || "" })),
       garsonAdi: "Müşteri (QR Menü)",
     });
+    gonderilenEkle({
+      zaman: Date.now(),
+      tutar: sepet.reduce((acc, s) => acc + s.adet * s.fiyat, 0),
+      urunler: sepet.map((s) => ({ ad: s.ad, adet: s.adet, fiyat: s.fiyat, not: s.not || "" })),
+    });
+    document.getElementById("ode-buton").hidden = false;
     sepet = [];
     sepetYaz(sepet);
     bildirimGoster("Siparişiniz garsonumuza iletildi, onaylandıktan sonra hazırlanmaya başlanacak! 🎉", "basari");
@@ -313,6 +348,73 @@ async function garsonCagirTiklandi() {
   } finally {
     setTimeout(() => (buton.disabled = false), 5000);
   }
+}
+
+async function hesapIsteTiklandi() {
+  const buton = document.getElementById("hesap-iste-buton");
+  buton.disabled = true;
+  try {
+    await hesapIste(masaId);
+    bildirimGoster("Hesap istendi, birazdan getirilecek! 🧾", "basari");
+  } catch (err) {
+    bildirimGoster("Hata: " + err.message, "hata");
+  } finally {
+    setTimeout(() => (buton.disabled = false), 5000);
+  }
+}
+
+// "💳 Öde" — bu cihazdan gönderilen siparişlerin toplamı + şubenin ödeme
+// linki / IBAN'ı + "Ödedim, bildir" butonu. (Tam entegre online ödeme sunucu
+// tarafı gerektirir — bkz. functions/index.js; bu sürüm link/havale odaklı.)
+function odemeModalGoster() {
+  const gonderilenler = gonderilenOku();
+  const toplam = gonderilenToplam();
+  const katman = document.createElement("div");
+  katman.className = "alt-sayfa-katman";
+  const ibanBlok = sube?.iban ? `
+    <div class="odeme-iban-kutu">
+      <div style="font-size:12px;color:var(--renk-yazi-soluk);">IBAN${sube.ibanAdi ? ` — ${escapeHtml(sube.ibanAdi)}` : ""}</div>
+      <div style="font-weight:800;letter-spacing:.5px;word-break:break-all;">${escapeHtml(sube.iban)}</div>
+      <button id="iban-kopya" class="btn-ikincil btn-tam" style="margin-top:8px;">📋 IBAN'ı Kopyala</button>
+    </div>` : "";
+  const linkBlok = sube?.odemeLinki ? `
+    <a href="${escapeHtml(sube.odemeLinki)}" target="_blank" rel="noopener" class="btn-birincil btn-tam" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;">💳 Ödeme Sayfasını Aç</a>` : "";
+
+  katman.innerHTML = `
+    <div class="alt-sayfa">
+      <div class="alt-sayfa-tutamac"></div>
+      <h2>Ödeme</h2>
+      ${gonderilenler.length ? `
+        <div class="odeme-siparis-liste">
+          ${gonderilenler.flatMap((k) => k.urunler).map((u) => `
+            <div class="sepet-satir"><div class="ad">${u.adet}x ${escapeHtml(u.ad)}</div>
+            <div style="font-weight:700;">${paraFormat(u.adet * u.fiyat)}</div></div>`).join("")}
+        </div>
+        <div class="sepet-toplam-satir"><span>Bu cihazdan gönderilen toplam</span><span>${paraFormat(toplam)}</span></div>
+        <p style="font-size:11px;color:var(--renk-yazi-soluk);margin-top:-4px;">Not: Bu tutar yalnızca bu telefondan verdiğiniz siparişleri kapsar. Masadaki kesin tutar için garsonunuzdan hesap isteyin.</p>
+      ` : `<p style="color:var(--renk-yazi-soluk);">Bu telefondan henüz sipariş gönderilmedi.</p>`}
+      ${linkBlok}
+      ${ibanBlok}
+      ${(linkBlok || ibanBlok) ? "" : `<p style="color:var(--renk-yazi-soluk);">Bu şube için çevrimiçi ödeme bilgisi tanımlı değil — lütfen kasadan ödeyin.</p>`}
+      <button id="odedim-bildir" class="btn-yesil btn-tam" style="margin-top:12px;">✅ Ödedim, kasaya bildir</button>
+    </div>`;
+  document.body.appendChild(katman);
+  katman.addEventListener("click", (e) => { if (e.target === katman) katman.remove(); });
+
+  katman.querySelector("#iban-kopya")?.addEventListener("click", () => {
+    navigator.clipboard.writeText(sube.iban).then(() => bildirimGoster("IBAN kopyalandı.", "basari"));
+  });
+  katman.querySelector("#odedim-bildir").addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    try {
+      await odemeBildir(masaId);
+      bildirimGoster("Ödeme bildiriminiz kasaya iletildi. Teşekkürler! 🙏", "basari");
+      katman.remove();
+    } catch (err) {
+      bildirimGoster("Hata: " + err.message, "hata");
+      e.target.disabled = false;
+    }
+  });
 }
 
 baslat();

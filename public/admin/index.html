@@ -68,6 +68,14 @@
         <div class="sekme-eylemler">
           <select id="masa-sube-filtre" style="max-width:220px;"></select>
           <button id="masa-ekle-buton" class="btn-birincil">+ Yeni Masa</button>
+          <button id="masa-plan-buton" class="btn-ikincil">📐 Masa Planı</button>
+        </div>
+        <div id="masa-plan-editor" class="kart" hidden>
+          <p style="font-size:13px;color:var(--renk-yazi-soluk);margin:0 0 10px;">Masaları sürükleyip bırakarak salon yerleşimini oluşturun. Bu yerleşim adisyon ve garson ekranlarında "Plan görünümü" olarak kullanılır. Şube filtresi seçili olmalıdır.</p>
+          <div id="masa-plan-alani" class="masa-plan-alani"></div>
+          <div style="margin-top:10px;display:flex;gap:8px;">
+            <button id="masa-plan-sifirla" class="btn-ikincil btn-kucuk">Yerleşimi Sıfırla</button>
+          </div>
         </div>
         <div id="masalar-liste" class="masa-kart-grid"></div>
       </section>
@@ -148,7 +156,12 @@
           <select id="rapor-sube"></select>
         </div>
         <div id="rapor-ozet" class="panel-kart-grid"></div>
+        <div id="rapor-odeme-kirilim" class="kart"></div>
         <div id="rapor-en-cok-satan" class="kart"></div>
+        <div id="rapor-urun-ciro" class="kart"></div>
+        <div id="rapor-saatlik" class="kart"></div>
+        <div id="rapor-personel" class="kart"></div>
+        <div id="rapor-iptal-ikram" class="kart"></div>
       </section>
 
       <section id="sekme-ayarlar" class="sekme-icerik" hidden>
@@ -174,6 +187,10 @@
   </div>
 
   <div id="yukleniyor-ekrani" class="yukleniyor" style="min-height:100vh;">Yükleniyor...</div>
+
+  <!-- Gün sonu (Z) raporu — muhasebe sekmesinden "Z Raporu" ile doldurulup
+       yazdırılır (tarayıcının "PDF olarak kaydet"i ile PDF alınabilir). -->
+  <div id="z-rapor-yazdirma" class="yazdirilacak" style="display:none;"></div>
 
   <script type="module" src="./js/admin.js"></script>
 </body>

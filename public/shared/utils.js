@@ -153,6 +153,89 @@ export function bildirimGoster(mesaj, tur = "bilgi") {
   }, 3200);
 }
 
+// ── Çevrimdışı (offline) göstergesi ─────────────────────────────────────
+// Bağlantı kesildiğinde sabit bir uyarı şeridi gösterir; geri geldiğinde
+// kısa bir "tekrar çevrimiçi" bilgisi verir. Firestore yazmaları zaten
+// kuyruğa alınıp otomatik gönderildiği için (bkz. firebase-config.js) bu
+// sadece personeli bilgilendirir. Her sayfa baslat()'ında bir kez çağrılır.
+export function baglantiDurumuBaslat() {
+  if (typeof window === "undefined" || window.__baglantiIzleniyor) return;
+  window.__baglantiIzleniyor = true;
+
+  const serit = document.createElement("div");
+  serit.id = "baglanti-serit";
+  serit.className = "yazdirma-gizle";
+  serit.style.cssText =
+    "position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#c0392b;color:#fff;" +
+    "text-align:center;padding:8px 14px;font-size:13px;font-weight:700;transform:translateY(100%);" +
+    "transition:transform .25s ease;";
+  serit.textContent = "⚠ Çevrimdışı — internet yok. Yaptığınız işlemler bağlantı gelince gönderilecek.";
+  document.addEventListener("DOMContentLoaded", () => document.body.appendChild(serit));
+  if (document.body) document.body.appendChild(serit);
+
+  const guncelle = () => {
+    const cevrimdisi = !navigator.onLine;
+    serit.style.transform = cevrimdisi ? "translateY(0)" : "translateY(100%)";
+    if (!cevrimdisi && window.__ilkBaglantiKontroluGecti) {
+      bildirimGoster("Bağlantı geri geldi, bekleyen işlemler gönderiliyor…", "basari");
+    }
+    window.__ilkBaglantiKontroluGecti = true;
+  };
+  window.addEventListener("online", guncelle);
+  window.addEventListener("offline", guncelle);
+  guncelle();
+}
+
+// ── Sesli / görsel uyarı (yeni sipariş, garson çağrısı, hazır sipariş) ──
+// Harici ses dosyası yok — WebAudio ile kısa bir "bip" üretilir. İlk kez
+// bir kullanıcı etkileşiminden sonra çalışır (tarayıcı otomatik ses
+// engeli); mutfak/garson ekranında ilk dokunuştan sonra sorunsuz çalışır.
+let __sesBaglami = null;
+export function sesliUyari(tekrar = 2) {
+  try {
+    __sesBaglami = __sesBaglami || new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = __sesBaglami;
+    if (ctx.state === "suspended") ctx.resume();
+    for (let i = 0; i < tekrar; i++) {
+      const osc = ctx.createOscillator();
+      const kaz = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      kaz.gain.value = 0.0001;
+      osc.connect(kaz).connect(ctx.destination);
+      const t0 = ctx.currentTime + i * 0.28;
+      kaz.gain.setValueAtTime(0.0001, t0);
+      kaz.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02);
+      kaz.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
+      osc.start(t0);
+      osc.stop(t0 + 0.24);
+    }
+  } catch { /* ses desteklenmiyorsa sessizce geç */ }
+}
+
+// Sekme arka plandayken başlığı yanıp söndürerek dikkat çeker; sekmeye
+// dönülünce eski başlığa döner.
+let __baslikYanip = null;
+export function sekmeDikkat(metin) {
+  if (typeof document === "undefined" || !document.hidden) return;
+  const eski = document.title;
+  if (__baslikYanip) { clearInterval(__baslikYanip.zamanlayici); document.title = __baslikYanip.eski; }
+  let acik = false;
+  const zamanlayici = setInterval(() => {
+    document.title = acik ? eski : `🔔 ${metin}`;
+    acik = !acik;
+  }, 1000);
+  __baslikYanip = { zamanlayici, eski };
+  const durdur = () => {
+    if (!__baslikYanip) return;
+    clearInterval(__baslikYanip.zamanlayici);
+    document.title = __baslikYanip.eski;
+    __baslikYanip = null;
+    document.removeEventListener("visibilitychange", durdur);
+  };
+  document.addEventListener("visibilitychange", durdur);
+}
+
 // Ürün kartlarında / listelerinde kullanılan alerjen rozetlerini üretir.
 export function alerjenRozetleriHtml(alerjenler = [], glutensiz = false) {
   const rozetler = (alerjenler || [])
@@ -276,4 +359,12 @@ export function urunSubedeAktifMi(urun, subeId) {
 export function urunSubeFiyati(urun, subeId) {
   const ozel = subeId ? urun.subeAyarlari?.[subeId] : null;
   return typeof ozel?.fiyat === "number" ? ozel.fiyat : Number(urun.fiyat) || 0;
+}
+
+// "86 / tükendi": kasa veya garson bir ürünü geçici olarak satışa kapatabilir
+// (mutfakta malzemesi bitti). Ürün menüde görünmeye devam eder ama "TÜKENDİ"
+// etiketiyle işaretlenir ve sepete eklenemez. Admin panelinden "aktif"
+// kaldırmaktan farklıdır (o menüden tamamen gizler).
+export function urunTukendiMi(urun) {
+  return urun?.tukendi === true;
 }

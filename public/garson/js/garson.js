@@ -1,17 +1,20 @@
 import { db, auth } from "../../shared/firebase-config.js";
 import {
-  collection, doc, getDoc, updateDoc, onSnapshot, query, where,
+  collection, doc, getDoc, updateDoc, onSnapshot, query, where, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { siparisOlustur, siparisiOnayla, siparisiGuncelle, siparisiIptalEt } from "../../shared/siparis.js";
 import { sayfaKorumaBaslat, cikisYap } from "../../shared/auth.js";
 import { mutfakFisiYazdir } from "../../shared/fis.js";
+import { pwaBaslat } from "../../shared/pwa.js";
 import {
   paraFormat, escapeHtml, alerjenRozetleriHtml, bildirimGoster, debounce, MASA_DURUMLARI,
   SIPARIS_DURUMLARI, tarihFormat, kategorilerSirali, kategoriVeAltlariIds, temaBaslat,
-  urunSubedeAktifMi, urunSubeFiyati,
+  urunSubedeAktifMi, urunSubeFiyati, urunTukendiMi, baglantiDurumuBaslat, sesliUyari, sekmeDikkat,
 } from "../../shared/utils.js";
 
 temaBaslat();
+pwaBaslat();
+baglantiDurumuBaslat();
 
 let kullanici = null; // {ad, subeId}
 let masalarCache = [];
@@ -23,6 +26,8 @@ let aktifKategori = "";
 let aramaMetni = "";
 let sepet = []; // her masa değişiminde sıfırlanır (masa bazlı sepet_<id> localStorage ile kalıcı)
 let oncekiDurumlar = new Map(); // siparisId -> durum (mutfakta "hazır" olduğunda bildirim için)
+let oncekiCagriMasalari = new Set(); // garson çağrısı / hesap isteği olan masa id'leri (sesli uyarı için)
+let ilkSiparisYuklemesi = true; // ilk snapshot'ta eski kayıtlar için ses çalma
 
 function sepetAnahtari() { return `sepet_garson_${seciliMasa.id}`; }
 function sepetOku() { try { return JSON.parse(localStorage.getItem(sepetAnahtari())) || []; } catch { return []; } }
@@ -47,8 +52,25 @@ async function baslat() {
   const masalarQuery = kullanici.subeId
     ? query(collection(db, "masalar"), where("subeId", "==", kullanici.subeId))
     : query(collection(db, "masalar"));
+  let ilkMasaYuklemesi = true;
   onSnapshot(masalarQuery, (snap) => {
     masalarCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    // Bir masada garson çağrısı / hesap isteği YENİ belirdiyse sesli uyarı.
+    const simdikiCagrilar = new Set(masalarCache.filter((m) => m.garsonCagirildi || m.hesapIstendi || m.odemeBildirildi).map((m) => m.id));
+    if (!ilkMasaYuklemesi) {
+      const taze = [...simdikiCagrilar].filter((id) => !oncekiCagriMasalari.has(id));
+      if (taze.length > 0) {
+        const m = masalarCache.find((x) => x.id === taze[0]);
+        const ne = m?.odemeBildirildi ? "ödeme bildirdi" : m?.hesapIstendi ? "hesap istedi" : "garson çağırdı";
+        sesliUyari(2);
+        sekmeDikkat("Masa çağrısı");
+        bildirimGoster(`🔔 ${m?.ad || "Bir masa"}: ${ne}!`, "uyari");
+      }
+    }
+    oncekiCagriMasalari = simdikiCagrilar;
+    ilkMasaYuklemesi = false;
+
     renderMasalar();
   });
 
@@ -76,12 +98,15 @@ async function baslat() {
       const onceki = oncekiDurumlar.get(s.id);
       if (s.durum === "hazir" && onceki && onceki !== "hazir") {
         bildirimGoster(`🍽️ ${s.masaAd || s.masaId} hazır! Servise götürün.`, "basari");
+        if (!ilkSiparisYuklemesi) { sesliUyari(2); sekmeDikkat("Sipariş hazır"); }
       }
       if (s.durum === "onay_bekliyor" && onceki === undefined) {
         bildirimGoster(`🔔 ${s.masaAd || s.masaId}: onay bekleyen yeni sipariş!`, "uyari");
+        if (!ilkSiparisYuklemesi) { sesliUyari(1); sekmeDikkat("Onay bekleyen sipariş"); }
       }
       oncekiDurumlar.set(s.id, s.durum);
     });
+    ilkSiparisYuklemesi = false;
 
     siparislerCache = yeniListe;
     renderMasalar();
@@ -123,10 +148,13 @@ function renderMasalar() {
     const benimMasam = m.sorumluGarsonId && m.sorumluGarsonId === auth.currentUser?.uid;
     const seciliMi = seciliMasa && m.id === seciliMasa.id;
     return `
-    <div class="masa-kart-mini ${m.durum || "bos"} ${seciliMi ? "secili" : ""} ${m.garsonCagirildi ? "cagirdi" : ""} ${yeniSiparisVar ? "yeni-siparis" : ""} ${hazirSiparisVar ? "hazir-siparis" : ""} ${onayBekliyorVar ? "onay-bekliyor" : ""}" data-masa="${m.id}">
+    <div class="masa-kart-mini ${m.durum || "bos"} ${seciliMi ? "secili" : ""} ${m.garsonCagirildi ? "cagirdi" : ""} ${m.hesapIstendi ? "hesap-istendi" : ""} ${m.odemeBildirildi ? "odeme-bildirildi" : ""} ${yeniSiparisVar ? "yeni-siparis" : ""} ${hazirSiparisVar ? "hazir-siparis" : ""} ${onayBekliyorVar ? "onay-bekliyor" : ""}" data-masa="${m.id}">
       ${benimMasam ? `<span class="benim-masam-etiketi">👤</span>` : ""}
       ${escapeHtml(m.ad)}
       <div class="durum" style="color:${(MASA_DURUMLARI[m.durum] || MASA_DURUMLARI.bos).renk}">${(MASA_DURUMLARI[m.durum] || MASA_DURUMLARI.bos).etiket}</div>
+      ${m.garsonCagirildi ? `<div class="cagri-etiketi">🔔 Çağrı</div>` : ""}
+      ${m.hesapIstendi ? `<div class="cagri-etiketi hesap">🧾 Hesap</div>` : ""}
+      ${m.odemeBildirildi ? `<div class="cagri-etiketi odeme">💳 Ödeme</div>` : ""}
       ${onayBekliyorVar ? `<div class="onay-etiketi">⏳ Onay Bekliyor</div>` : ""}
       ${hazirSiparisVar ? `<div class="hazir-etiketi">✅ Hazır</div>` : ""}
     </div>`;
@@ -145,9 +173,9 @@ function masaSec(masaId) {
   sepetBarGuncelle();
   document.getElementById("siparis-alani").scrollIntoView({ behavior: "smooth" });
 
-  // Garson çağrısı varsa gördü işareti koy
-  if (seciliMasa.garsonCagirildi) {
-    updateDoc(doc(db, "masalar", masaId), { garsonCagirildi: false }).catch(() => {});
+  // Garson çağrısı / hesap isteği varsa "gördüm" işareti koy
+  if (seciliMasa.garsonCagirildi || seciliMasa.hesapIstendi) {
+    updateDoc(doc(db, "masalar", masaId), { garsonCagirildi: false, hesapIstendi: false, odemeBildirildi: false }).catch(() => {});
   }
 }
 
@@ -335,7 +363,7 @@ function iptalModaliGoster(siparis) {
     const buton = katman.querySelector("#iptal-onayla-buton");
     buton.disabled = true;
     try {
-      await siparisiIptalEt(siparis.id, not);
+      await siparisiIptalEt(siparis.id, not, kullanici.ad);
       bildirimGoster("Sipariş iptal edildi.", "basari");
       katman.remove();
     } catch (err) {
@@ -364,20 +392,45 @@ function renderUrunler() {
   if (aramaMetni) liste = liste.filter((u) => u.ad?.toLowerCase().includes(aramaMetni));
   if (liste.length === 0) { listeEl.innerHTML = `<div class="bos-durum">Ürün bulunamadı.</div>`; return; }
 
-  listeEl.innerHTML = liste.map((u) => `
-    <div class="urun-kare-kart" data-urun="${u.id}">
+  listeEl.innerHTML = liste.map((u) => {
+    const tukendi = urunTukendiMi(u);
+    return `
+    <div class="urun-kare-kart ${tukendi ? "tukendi" : ""}" data-urun="${u.id}">
       <img src="${u.gorselUrl || "https://placehold.co/300x300?text=%F0%9F%8D%BD"}" alt="" loading="lazy" />
+      ${tukendi ? `<span class="ukk-tukendi-rozet">TÜKENDİ</span>` : ""}
       <div class="ukk-govde">
         <h3>${escapeHtml(u.ad)}</h3>
         <span class="fiyat">${paraFormat(urunSubeFiyati(u, kullanici.subeId))}</span>
         <div class="ukk-rozet">${u.kalori ?? "-"} kcal ${alerjenRozetleriHtml(u.alerjenler, u.glutensiz)}</div>
       </div>
-    </div>`).join("");
+      <button class="ukk-86-buton" data-bitti="${u.id}">${tukendi ? "↩︎ Satışa aç" : "86"}</button>
+    </div>`;
+  }).join("");
 
-  listeEl.querySelectorAll("[data-urun]").forEach((satir) => satir.addEventListener("click", () => {
+  listeEl.querySelectorAll("[data-urun]").forEach((satir) => satir.addEventListener("click", (e) => {
+    const urun = urunlerCache.find((u) => u.id === satir.dataset.urun);
+    if (e.target.closest(".ukk-86-buton")) { urunTukendiToggle(urun); return; }
     if (!seciliMasa) { bildirimGoster("Önce bir masa seçin.", "uyari"); return; }
-    urunEkleModali(urunlerCache.find((u) => u.id === satir.dataset.urun));
+    if (urunTukendiMi(urun)) { bildirimGoster(`${urun.ad} şu an tükendi.`, "uyari"); return; }
+    urunEkleModali(urun);
   }));
+}
+
+// Bir ürünü "tükendi (86)" işaretler / geri alır (canlı senkron — tüm
+// ekranlar kendiliğinden tazelenir).
+async function urunTukendiToggle(urun) {
+  if (!urun) return;
+  const yeni = !urunTukendiMi(urun);
+  if (yeni && !confirm(`"${urun.ad}" tükendi olarak işaretlensin mi?\n\nTüm ekranlarda "TÜKENDİ" görünecek ve sipariş alınamayacak.`)) return;
+  try {
+    await updateDoc(doc(db, "urunler", urun.id), {
+      tukendi: yeni,
+      tukendiZamani: yeni ? serverTimestamp() : null,
+    });
+    bildirimGoster(yeni ? `${urun.ad}: tükendi işaretlendi.` : `${urun.ad}: tekrar satışta.`, "basari");
+  } catch (err) {
+    bildirimGoster("Hata: " + err.message, "hata");
+  }
 }
 
 function urunEkleModali(urun) {

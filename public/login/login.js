@@ -2,6 +2,9 @@ import { auth, db } from "../shared/firebase-config.js";
 import { createUserWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import { doc, writeBatch, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { girisYap, oturumBilgisiAl, ROL_ANASAYFA } from "../shared/auth.js";
+import { pwaBaslat } from "../shared/pwa.js";
+
+pwaBaslat();
 
 const hataKutusu = document.getElementById("hata-mesaji");
 const basariKutusu = document.getElementById("basari-mesaji");

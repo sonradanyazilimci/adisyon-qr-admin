@@ -70,7 +70,17 @@ function formGoster(sube = null) {
         <div class="form-alan"><label>Telefon</label><input name="telefon" value="${sube ? escapeHtml(sube.telefon || "") : ""}" /></div>
         <div class="form-alan"><label>Sıra</label><input name="sira" type="number" value="${sube ? sube.sira ?? 0 : subelerCache.length}" /></div>
         <div class="form-alan"><label><input type="checkbox" name="aktif" style="width:auto;" ${!sube || sube.aktif !== false ? "checked" : ""}/> Aktif</label></div>
-        <button type="submit" class="btn-birincil btn-tam">${sube ? "Kaydet" : "Ekle"}</button>
+        <div class="form-alan"><label><input type="checkbox" name="vardiyaKilidiAktif" style="width:auto;" ${sube && sube.vardiyaKilidiAktif ? "checked" : ""}/> Adisyon vardiya kilidi</label>
+          <small style="color:var(--renk-yazi-soluk);">Açıkken: kasa personeli "Çıkış" veya "Gün Sonu" yaptığında adisyon terminali kilitlenir, yeni gelen kendi şifresiyle devralır (çok personelli şube için). Kapalıyken: "Çıkış" normal oturum kapatmadır. Admin her koşulda kilitlenmez.</small></div>
+        <hr style="border:none;border-top:1px solid var(--renk-kenar);margin:14px 0;">
+        <p style="font-weight:700;font-size:13px;margin:0 0 8px;">💳 QR Menü Ödeme Bilgileri (opsiyonel)</p>
+        <div class="form-alan"><label>Ödeme Linki (iyzico/PayTR/Param linki)</label><input name="odemeLinki" value="${sube ? escapeHtml(sube.odemeLinki || "") : ""}" placeholder="https://..." /></div>
+        <div class="form-satir">
+          <div class="form-alan"><label>IBAN</label><input name="iban" value="${sube ? escapeHtml(sube.iban || "") : ""}" placeholder="TR.. .. .. .." /></div>
+          <div class="form-alan"><label>IBAN Hesap Adı</label><input name="ibanAdi" value="${sube ? escapeHtml(sube.ibanAdi || "") : ""}" placeholder="Firma / kişi adı" /></div>
+        </div>
+        <small style="color:var(--renk-yazi-soluk);">QR menüde "💳 Öde" butonuyla müşteriye gösterilir. Link varsa açılır; yoksa IBAN + tutar kopyalanabilir. Müşteri "Ödedim" derse kasaya bildirim düşer.</small>
+        <button type="submit" class="btn-birincil btn-tam" style="margin-top:14px;">${sube ? "Kaydet" : "Ekle"}</button>
       </form>
     </div>`;
   document.body.appendChild(katman);
@@ -86,6 +96,10 @@ function formGoster(sube = null) {
       telefon: fd.get("telefon").trim(),
       sira: Number(fd.get("sira")) || 0,
       aktif: fd.get("aktif") === "on",
+      vardiyaKilidiAktif: fd.get("vardiyaKilidiAktif") === "on",
+      odemeLinki: fd.get("odemeLinki").trim(),
+      iban: fd.get("iban").trim(),
+      ibanAdi: fd.get("ibanAdi").trim(),
     };
     try {
       if (sube) {

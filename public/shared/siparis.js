@@ -53,6 +53,7 @@ async function kalemleriOlustur(urunlerGirdi, subeId = null) {
     if (!snap.exists()) throw new Error(`Ürün bulunamadı: ${istek.urunId}`);
     const urun = snap.data();
     if (!urunSubedeAktifMi(urun, subeId)) throw new Error(`"${urun.ad}" bu şubede menüde aktif değil.`);
+    if (urun.tukendi === true) throw new Error(`"${urun.ad}" şu an tükendi (86). Sipariş alınamaz.`);
     const adet = Number(istek.adet);
     const fiyat = urunSubeFiyati(urun, subeId);
     siparisKalemleri.push({
@@ -164,6 +165,16 @@ async function masaBul(masaId) {
   return { masaRef, masa: masaSnap.data() };
 }
 
+// Stok düşen işlemler (yeni sipariş / onaylama) Firestore transaction'ı
+// kullanır ve bunlar ÇEVRİMDIŞI çalışmaz (sunucu turu gerekir). Diğer
+// yazmalar (durum güncelleme, taslak, hesap kapatma) kuyruğa alınıp
+// bağlantı gelince otomatik gönderilir — bkz. firebase-config.js.
+function cevrimdisiIseHata() {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    throw new Error("İnternet bağlantısı yok. Stok düşen bu işlem çevrimdışı yapılamaz — bağlantı gelince tekrar deneyin.");
+  }
+}
+
 /**
  * PERSONEL (garson/kasa) sipariş oluşturur — zaten staff onayladığı için
  * doğrudan "yeni" durumunda açılır, stok HEMEN düşülür.
@@ -171,6 +182,7 @@ async function masaBul(masaId) {
  */
 export async function siparisOlustur({ masaId, urunler, garsonId = null, garsonAdi = "Müşteri (QR Menü)" }) {
   if (!masaId || typeof masaId !== "string") throw new Error("Masa bilgisi eksik.");
+  cevrimdisiIseHata();
   const { masaRef, masa } = await masaBul(masaId);
   const siparisKalemleri = await kalemleriOlustur(urunler, masa.subeId || null);
   const siparisRef = doc(collection(db, "siparisler"));
@@ -217,6 +229,7 @@ export async function siparisTaslakOlustur({ masaId, urunler, garsonAdi = "Müş
 
 /** Garson/kasa "onay_bekliyor" bir siparişi onaylar → durum "yeni" olur, stok ŞİMDİ düşülür. */
 export async function siparisiOnayla(siparisId) {
+  cevrimdisiIseHata();
   const siparisRef = doc(db, "siparisler", siparisId);
   const snap = await getDoc(siparisRef);
   if (!snap.exists()) throw new Error("Sipariş bulunamadı.");
@@ -242,6 +255,7 @@ export async function siparisiOnayla(siparisId) {
  * @param {Array<{urunId:string, adet:number, not?:string}>} yeniKalemlerGirdi
  */
 export async function siparisiGuncelle(siparisId, yeniKalemlerGirdi) {
+  cevrimdisiIseHata();
   const siparisRef = doc(db, "siparisler", siparisId);
   const snap = await getDoc(siparisRef);
   if (!snap.exists()) throw new Error("Sipariş bulunamadı.");
@@ -273,7 +287,8 @@ export async function siparisiGuncelle(siparisId, yeniKalemlerGirdi) {
  * yapılabilir. Stok daha önce düşülmüşse (durum "yeni" idiyse) TAMAMEN iade
  * edilir. Orijinal ürün listesi geçmiş için korunur, sadece durum değişir.
  */
-export async function siparisiIptalEt(siparisId, not) {
+export async function siparisiIptalEt(siparisId, not, iptalEden = "") {
+  cevrimdisiIseHata();
   const siparisRef = doc(db, "siparisler", siparisId);
   const snap = await getDoc(siparisRef);
   if (!snap.exists()) throw new Error("Sipariş bulunamadı.");
@@ -293,6 +308,7 @@ export async function siparisiIptalEt(siparisId, not) {
     ekAlanlar: {
       durum: "iptal",
       iptalNotu: not || "",
+      iptalEden: iptalEden || "",
       iptalZamani: serverTimestamp(),
     },
   });
@@ -304,5 +320,24 @@ export async function garsonCagir(masaId) {
   await updateDoc(doc(db, "masalar", masaId), {
     garsonCagirildi: true,
     garsonCagriZamani: serverTimestamp(),
+  });
+}
+
+/** Müşteri QR menüden "Hesap İste" butonuna bastığında çağrılır. */
+export async function hesapIste(masaId) {
+  if (!masaId) throw new Error("Masa bilgisi eksik.");
+  await updateDoc(doc(db, "masalar", masaId), {
+    hesapIstendi: true,
+    hesapIstemeZamani: serverTimestamp(),
+  });
+}
+
+/** Müşteri QR menüden "Ödedim / Ödemeyi bildir" butonuna bastığında çağrılır
+ * (havale/EFT veya ödeme linkiyle ödedikten sonra kasayı haberdar eder). */
+export async function odemeBildir(masaId) {
+  if (!masaId) throw new Error("Masa bilgisi eksik.");
+  await updateDoc(doc(db, "masalar", masaId), {
+    odemeBildirildi: true,
+    odemeBildirimZamani: serverTimestamp(),
   });
 }

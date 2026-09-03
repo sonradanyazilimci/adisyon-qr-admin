@@ -78,7 +78,41 @@
 .bar-satir .ad { width: 140px; font-size: 13px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bar-satir .bar-dis { flex: 1; background: #eef1f5; border-radius: 6px; height: 18px; overflow: hidden; }
 .bar-satir .bar-ic { background: var(--renk-ana); height: 100%; border-radius: 6px; }
-.bar-satir .adet { width: 60px; text-align: right; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.bar-satir .adet { min-width: 60px; text-align: right; font-size: 13px; font-weight: 700; flex-shrink: 0; white-space: nowrap; }
+
+/* Gün sonu (Z) raporu — ekranda gizli, sadece yazdırılırken (veya
+   tarayıcıdan "PDF olarak kaydet") görünür. A4 belge düzeni. */
+#z-rapor-yazdirma { font-family: "Segoe UI", system-ui, sans-serif; color: #000; background: #fff; padding: 24px; max-width: 800px; margin: 0 auto; }
+#z-rapor-yazdirma h1 { font-size: 20px; margin: 0 0 4px; }
+#z-rapor-yazdirma h2 { font-size: 14px; margin: 18px 0 6px; border-bottom: 2px solid #000; padding-bottom: 3px; }
+#z-rapor-yazdirma .zr-meta { font-size: 12px; color: #333; margin: 2px 0; }
+#z-rapor-yazdirma table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 4px; }
+#z-rapor-yazdirma td { padding: 5px 4px; border-bottom: 1px solid #ccc; }
+#z-rapor-yazdirma td.sag { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#z-rapor-yazdirma tr.zr-toplam td { border-top: 2px solid #000; border-bottom: none; font-weight: 800; font-size: 14px; }
+#z-rapor-yazdirma .zr-fark-art { color: #1a7f37; }
+#z-rapor-yazdirma .zr-fark-eksik { color: #c0392b; }
+
+@media print {
+  #z-rapor-yazdirma { display: block !important; }
+  @page { size: A4; margin: 14mm; }
+}
+
+/* Masa planı düzenleyici (admin) */
+.masa-plan-alani {
+  position: relative; width: 100%; aspect-ratio: 16 / 9; min-height: 300px;
+  background: var(--renk-ikincil-bg);
+  background-image: linear-gradient(var(--renk-kenar) 1px, transparent 1px), linear-gradient(90deg, var(--renk-kenar) 1px, transparent 1px);
+  background-size: 5% 8.33%;
+  border: 1px solid var(--renk-kenar); border-radius: 10px; overflow: hidden; touch-action: none;
+}
+.masa-plan-cip {
+  position: absolute; padding: 8px 12px; background: var(--renk-ana); color: #fff;
+  border-radius: 8px; font-size: 12px; font-weight: 800; cursor: grab; user-select: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25); white-space: nowrap; touch-action: none;
+}
+.masa-plan-cip.yerlesmemis { background: var(--renk-yazi-soluk); }
+.masa-plan-cip.suruklenen { cursor: grabbing; opacity: .85; box-shadow: 0 6px 18px rgba(0,0,0,.4); z-index: 5; }
 
 @media (max-width: 900px) {
   #uygulama { flex-direction: column; }

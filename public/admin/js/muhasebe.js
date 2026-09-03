@@ -1,6 +1,6 @@
 import { db, auth } from "../../shared/firebase-config.js";
 import {
-  collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp,
+  collection, doc, getDoc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
   paraFormat, escapeHtml, tarihFormat, tarihAnahtariniOku, tarihAraligiBaslangici, snapshotHataYakala, bildirimGoster,
@@ -231,7 +231,7 @@ function render() {
     ? `<div class="bos-durum">Seçilen aralıkta gönderilmiş vardiya kapanışı yok.</div>`
     : `<div style="overflow-x:auto;">
         <table class="veri-tablo">
-          <thead><tr><th>Şube</th><th>Tarih</th><th>Devir</th><th>Beklenen</th><th>Sayılan</th><th>Fark</th><th>Kapatan</th><th></th></tr></thead>
+          <thead><tr><th>Şube</th><th>Tarih</th><th>Devir</th><th>Beklenen</th><th>Sayılan</th><th>Fark</th><th>Kapatan</th><th>Rapor</th><th></th></tr></thead>
           <tbody>
             ${gsSirali.map((g) => {
               const enSonMu = !g.iptalEdildi && subeninEnSonKapanisi(g.subeId)?.id === g.id;
@@ -244,6 +244,7 @@ function render() {
                 <td>${paraFormat(g.sayilanNakit)}</td>
                 <td><span class="rozet" style="background:${g.fark === 0 ? "#27ae60" : (g.fark || 0) > 0 ? "#2980b9" : "#c0392b"}">${paraFormat(g.fark)}</span></td>
                 <td class="tablo-soluk">${escapeHtml(g.kapatanKullanici || "")}</td>
+                <td><button class="btn-ikincil btn-kucuk" data-zrapor="${g.id}">📄 Z Raporu</button></td>
                 <td>${g.iptalEdildi
                   ? `<span class="tablo-soluk">🔓 Yeniden açıldı</span>`
                   : enSonMu
@@ -256,6 +257,7 @@ function render() {
       </div>`;
 
   gunSonuListeEl.querySelectorAll("[data-ac]").forEach((b) => b.addEventListener("click", () => gunSonuAc(b.dataset.ac)));
+  gunSonuListeEl.querySelectorAll("[data-zrapor]").forEach((b) => b.addEventListener("click", () => zRaporuYazdir(b.dataset.zrapor)));
 
   // Ham/anlık kasa hareketi akışı burada gösterilmez — sadece her vardiya
   // KAPANIP GÖNDERİLDİKTEN sonra o vardiyanın banka/kart/personel ödemesi
@@ -321,4 +323,77 @@ async function gunSonuAc(id) {
   } catch (err) {
     bildirimGoster("Hata: " + err.message, "hata");
   }
+}
+
+// Gün sonu (Z) raporu: gönderilmiş bir vardiya kapanışının tüm rakamlarını
+// A4 belge düzeninde #z-rapor-yazdirma'ya yazıp yazdırma penceresini açar.
+// Kâğıda basılabilir veya tarayıcının "PDF olarak kaydet" seçeneğiyle PDF
+// olarak alınabilir (harici kütüphane yok).
+async function zRaporuYazdir(id) {
+  const g = gunSonuKapanislariCache.find((x) => x.id === id);
+  if (!g) return;
+  let isletmeAdi = "";
+  try {
+    const snap = await getDoc(doc(db, "ayarlar", "genel"));
+    if (snap.exists()) isletmeAdi = snap.data().isletmeAdi || "";
+  } catch { /* isletme adı olmadan da rapor basılır */ }
+
+  const nakitSatis = Number(g.nakitSatisToplam || 0);
+  const kartSatis = Number(g.kartSatisToplam || 0);
+  const yemekCeki = Number(g.yemekCekiSatisToplam || 0);
+  const toplamCiro = nakitSatis + kartSatis + yemekCeki;
+  const manuelGiris = Number(g.manuelNakitGiris || 0);
+  const manuelCikis = Number(g.manuelNakitCikis || 0);
+  const fark = Number(g.fark || 0);
+  const farkSinif = fark === 0 ? "" : fark > 0 ? "zr-fark-art" : "zr-fark-eksik";
+  const farkEtiket = fark === 0 ? "TAM" : fark > 0 ? "FAZLA" : "EKSİK";
+
+  const satir = (etiket, tutar, kalin = false) =>
+    `<tr${kalin ? ' class="zr-toplam"' : ""}><td>${escapeHtml(etiket)}</td><td class="sag">${paraFormat(tutar)}</td></tr>`;
+
+  const markaSatirlari = g.yemekCekiMarkaBazinda && typeof g.yemekCekiMarkaBazinda === "object"
+    ? Object.entries(g.yemekCekiMarkaBazinda).filter(([, v]) => Number(v) > 0)
+      .map(([marka, v]) => satir(`   • ${marka}`, Number(v))).join("")
+    : "";
+
+  document.getElementById("z-rapor-yazdirma").innerHTML = `
+    <h1>GÜN SONU (Z) RAPORU</h1>
+    ${isletmeAdi ? `<div class="zr-meta"><strong>${escapeHtml(isletmeAdi)}</strong></div>` : ""}
+    <div class="zr-meta">Şube: <strong>${escapeHtml(g.subeAdi || "—")}</strong></div>
+    <div class="zr-meta">Vardiya tarihi: ${tarihAnahtariniOku(g.tarih)}</div>
+    <div class="zr-meta">Kapanış: ${tarihFormat(g.kapanmaZamani)} — Kapatan: ${escapeHtml(g.kapatanKullanici || "—")}</div>
+
+    <h2>Satışlar (Ödeme Yöntemine Göre)</h2>
+    <table>
+      ${satir("Nakit Satış", nakitSatis)}
+      ${satir("Kart Satış", kartSatis)}
+      ${satir("Yemek Çeki Satış", yemekCeki)}
+      ${markaSatirlari}
+      ${satir("TOPLAM CİRO", toplamCiro, true)}
+    </table>
+
+    <h2>Kasa (Nakit) Hareketi</h2>
+    <table>
+      ${satir("Devreden Kasa", Number(g.devirTutari || 0))}
+      ${satir("Nakit Satış", nakitSatis)}
+      ${satir("Elden Nakit Giriş", manuelGiris)}
+      ${satir("Elden Nakit Çıkış", -manuelCikis)}
+      ${satir("BEKLENEN NAKİT", Number(g.beklenenNakit || 0), true)}
+      ${satir("Sayılan Nakit", Number(g.sayilanNakit || 0))}
+      <tr class="zr-toplam"><td>KASA FARKI (${farkEtiket})</td><td class="sag ${farkSinif}">${paraFormat(fark)}</td></tr>
+    </table>
+
+    ${(g.bankaGiris || g.bankaCikis || g.kartHareketGiris || g.kartHareketCikis || g.personelOdemeToplam) ? `
+    <h2>Banka / Kart Hesabı / Personel</h2>
+    <table>
+      ${g.bankaGiris ? satir("Banka Giriş", Number(g.bankaGiris)) : ""}
+      ${g.bankaCikis ? satir("Banka Çıkış", -Number(g.bankaCikis)) : ""}
+      ${g.kartHareketGiris ? satir("Kart Hesabı Giriş", Number(g.kartHareketGiris)) : ""}
+      ${g.kartHareketCikis ? satir("Kart Hesabı Çıkış", -Number(g.kartHareketCikis)) : ""}
+      ${g.personelOdemeToplam ? satir("Personele Ödenen", -Number(g.personelOdemeToplam)) : ""}
+    </table>` : ""}
+
+    <div class="zr-meta" style="margin-top:24px;">Bu rapor ${tarihFormat(new Date())} tarihinde yazdırıldı.</div>
+  `;
+  setTimeout(() => window.print(), 60);
 }

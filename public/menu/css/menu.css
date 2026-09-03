@@ -77,6 +77,12 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
   box-shadow: 0 2px 8px rgba(0,0,0,.15);
 }
 .urun-satir.pasif { opacity: .45; pointer-events: none; }
+.urun-satir.tukendi img { opacity: .4; }
+.urun-satir.tukendi .metin h3 { color: var(--renk-yazi-soluk); }
+.urun-tukendi-rozet {
+  background: var(--renk-kirmizi); color: #fff; font-size: 11px; font-weight: 800;
+  letter-spacing: .5px; padding: 2px 8px; border-radius: 6px;
+}
 
 .yuzen-buton {
   position: fixed; right: 16px; bottom: 90px; width: 52px; height: 52px; border-radius: 50%;
@@ -84,6 +90,10 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
   align-items: center; justify-content: center; z-index: 60; padding: 0;
 }
 .yuzen-buton:active { transform: scale(.94); }
+.yuzen-hesap { bottom: 150px; }
+.yuzen-ode { bottom: 210px; background: var(--renk-ana); color: #fff; }
+.odeme-siparis-liste { max-height: 32vh; overflow-y: auto; margin-bottom: 8px; }
+.odeme-iban-kutu { background: var(--renk-ikincil-bg); border: 1px solid var(--renk-kenar); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
 
 .sepet-bar {
   position: fixed; left: 12px; right: 12px; bottom: 14px;

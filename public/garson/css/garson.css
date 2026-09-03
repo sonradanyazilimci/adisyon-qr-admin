@@ -26,6 +26,20 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
 }
 .masa-kart-mini.hazir-siparis { border-color: var(--renk-yesil); }
 .masa-kart-mini.onay-bekliyor { border-color: #9b59b6; }
+.masa-kart-mini.hesap-istendi { border-color: #2980b9; }
+.masa-kart-mini.hesap-istendi::after {
+  content: "🧾"; position: absolute; top: -8px; right: -6px; font-size: 18px;
+}
+.masa-kart-mini.odeme-bildirildi { border-color: #27ae60; }
+.masa-kart-mini.odeme-bildirildi::after {
+  content: "💳"; position: absolute; top: -8px; right: -6px; font-size: 18px;
+}
+.cagri-etiketi {
+  font-size: 10px; font-weight: 800; color: #d35400; margin-top: 4px;
+  animation: hazirYanip 1.2s ease-in-out infinite;
+}
+.cagri-etiketi.hesap { color: #2980b9; }
+.cagri-etiketi.odeme { color: #27ae60; }
 .hazir-etiketi {
   font-size: 10px; font-weight: 800; color: var(--renk-yesil); margin-top: 4px;
   animation: hazirYanip 1.2s ease-in-out infinite;
@@ -71,10 +85,22 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
 }
 .urun-kare-grid .bos-durum { grid-column: 1 / -1; }
 .urun-kare-kart {
+  position: relative;
   background: var(--renk-kart); border-radius: 12px; overflow: hidden; cursor: pointer;
   box-shadow: 0 1px 4px rgba(0,0,0,.08); display: flex; flex-direction: column;
 }
 .urun-kare-kart:active { transform: scale(0.97); }
+.urun-kare-kart.tukendi img { opacity: .45; }
+.urun-kare-kart.tukendi .fiyat { text-decoration: line-through; }
+.ukk-tukendi-rozet {
+  position: absolute; top: 6px; left: 6px; background: var(--renk-kirmizi); color: #fff;
+  font-size: 10px; font-weight: 800; letter-spacing: .5px; padding: 3px 7px; border-radius: 6px;
+}
+.ukk-86-buton {
+  margin: 0 8px 8px; padding: 6px 8px; font-size: 11px; font-weight: 800;
+  background: var(--renk-ikincil-bg); color: var(--renk-yazi-soluk); border-radius: 8px;
+}
+.urun-kare-kart.tukendi .ukk-86-buton { background: var(--renk-kirmizi); color: #fff; }
 .urun-kare-kart img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: var(--renk-ikincil-bg); }
 .ukk-govde { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 3px; }
 .ukk-govde h3 {

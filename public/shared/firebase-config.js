@@ -12,7 +12,10 @@
 // ─────────────────────────────────────────────────────────────────────────
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
+  initializeFirestore,
   getFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   connectFirestoreEmulator,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
@@ -30,7 +33,28 @@ const firebaseConfig = {
 };
 
 export const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+
+// Firestore OFFLINE kalıcı önbellek: bağlantı koptuğunda okumalar
+// önbellekten sürer, yapılan yazılar (addDoc/setDoc/updateDoc) IndexedDB'de
+// kuyruğa alınır ve bağlantı gelince OTOMATİK gönderilir. Böylece adisyon
+// terminali kısa internet kesintilerinde çalışmaya devam eder.
+// NOT: runTransaction (stok düşen "yeni sipariş oluştur") çevrimdışı
+// ÇALIŞMAZ — sunucu turu gerektirir; o işlem bağlantı gelince tekrar
+// denenmelidir (kullanıcıya net hata gösterilir).
+// persistentMultipleTabManager: aynı cihazda birden fazla sekme (ör. adisyon
+// + mutfak) açıkken önbelleği paylaşırlar, "sadece tek sekme" hatası olmaz.
+let _db;
+try {
+  _db = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  });
+} catch (err) {
+  // IndexedDB kapalı/erişilemez (ör. gizli sekme, eski tarayıcı) — çevrimdışı
+  // önbellek olmadan devam et.
+  console.warn("[firebase-config] Çevrimdışı önbellek açılamadı, ağ moduyla devam:", err);
+  _db = getFirestore(app);
+}
+export const db = _db;
 export const auth = getAuth(app);
 
 // Yerel geliştirme sırasında Firebase Emulator Suite kullanmak isterseniz

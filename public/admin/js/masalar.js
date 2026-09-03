@@ -27,7 +27,107 @@ export function baslat() {
   subelerDegisti(() => { renderSubeFiltre(); render(); });
   personelDegisti(() => render());
   ekleButon.addEventListener("click", () => formGoster());
-  subeFiltreEl.addEventListener("change", (e) => { subeFiltre = e.target.value; render(); });
+  subeFiltreEl.addEventListener("change", (e) => { subeFiltre = e.target.value; render(); if (planAcik) planCiz(); });
+
+  document.getElementById("masa-plan-buton").addEventListener("click", planAcKapa);
+  document.getElementById("masa-plan-sifirla").addEventListener("click", planSifirla);
+}
+
+// ── Masa planı (salon yerleşimi) düzenleyici ──────────────────────────────
+let planAcik = false;
+
+function planAcKapa() {
+  planAcik = !planAcik;
+  document.getElementById("masa-plan-editor").hidden = !planAcik;
+  document.getElementById("masa-plan-buton").textContent = planAcik ? "✕ Planı Kapat" : "📐 Masa Planı";
+  if (planAcik) planCiz();
+}
+
+function planMasalari() {
+  return masalarCache
+    .filter((m) => !subeFiltre || m.subeId === subeFiltre)
+    .slice()
+    .sort((a, b) => (a.ad || "").localeCompare(b.ad || "", "tr", { numeric: true }));
+}
+
+function planCiz() {
+  const alan = document.getElementById("masa-plan-alani");
+  const liste = planMasalari();
+  if (liste.length === 0) {
+    alan.innerHTML = `<div class="bos-durum" style="padding:20px;">Bu şubede masa yok.</div>`;
+    return;
+  }
+  // Konumu olmayan masalar sol üstte ızgara halinde dizilir (oradan sürüklenir).
+  let yerlesmemisSayaci = 0;
+  alan.innerHTML = liste.map((m) => {
+    const konumlu = typeof m.planX === "number" && typeof m.planY === "number";
+    let x = m.planX;
+    let y = m.planY;
+    if (!konumlu) {
+      x = 3 + (yerlesmemisSayaci % 6) * 9;
+      y = 3 + Math.floor(yerlesmemisSayaci / 6) * 14;
+      yerlesmemisSayaci++;
+    }
+    return `<div class="masa-plan-cip ${konumlu ? "" : "yerlesmemis"}" data-masa="${m.id}" style="left:${x}%;top:${y}%;">${escapeHtml(m.ad)}</div>`;
+  }).join("");
+
+  alan.querySelectorAll(".masa-plan-cip").forEach((cip) => surukleBagla(cip, alan));
+}
+
+function surukleBagla(cip, alan) {
+  let surukluyor = false;
+  let bkX = 0;
+  let bkY = 0;
+
+  cip.addEventListener("pointerdown", (e) => {
+    surukluyor = true;
+    cip.setPointerCapture(e.pointerId);
+    cip.classList.add("suruklenen");
+    const r = cip.getBoundingClientRect();
+    bkX = e.clientX - r.left;
+    bkY = e.clientY - r.top;
+  });
+
+  cip.addEventListener("pointermove", (e) => {
+    if (!surukluyor) return;
+    const ar = alan.getBoundingClientRect();
+    let x = ((e.clientX - bkX - ar.left) / ar.width) * 100;
+    let y = ((e.clientY - bkY - ar.top) / ar.height) * 100;
+    x = Math.max(0, Math.min(92, x));
+    y = Math.max(0, Math.min(90, y));
+    cip.style.left = `${x}%`;
+    cip.style.top = `${y}%`;
+    cip._sonX = x;
+    cip._sonY = y;
+  });
+
+  cip.addEventListener("pointerup", async (e) => {
+    if (!surukluyor) return;
+    surukluyor = false;
+    cip.releasePointerCapture(e.pointerId);
+    cip.classList.remove("suruklenen");
+    cip.classList.remove("yerlesmemis");
+    const x = Math.round((cip._sonX ?? parseFloat(cip.style.left)) * 10) / 10;
+    const y = Math.round((cip._sonY ?? parseFloat(cip.style.top)) * 10) / 10;
+    try {
+      await updateDoc(doc(db, "masalar", cip.dataset.masa), { planX: x, planY: y });
+    } catch (err) {
+      bildirimGoster("Konum kaydedilemedi: " + err.message, "hata");
+    }
+  });
+}
+
+async function planSifirla() {
+  const liste = planMasalari().filter((m) => typeof m.planX === "number");
+  if (liste.length === 0) { bildirimGoster("Sıfırlanacak yerleşim yok.", "uyari"); return; }
+  if (!confirm(`${liste.length} masanın plan konumu silinecek. Emin misiniz?`)) return;
+  try {
+    await Promise.all(liste.map((m) => updateDoc(doc(db, "masalar", m.id), { planX: null, planY: null })));
+    bildirimGoster("Yerleşim sıfırlandı.", "basari");
+    planCiz();
+  } catch (err) {
+    bildirimGoster("Hata: " + err.message, "hata");
+  }
 }
 
 function renderSubeFiltre() {
@@ -78,6 +178,9 @@ function render() {
   listeEl.querySelectorAll("[data-qr]").forEach((b) => b.addEventListener("click", () => qrGoster(masalarCache.find((m) => m.id === b.dataset.qr))));
   listeEl.querySelectorAll("[data-duzenle]").forEach((b) => b.addEventListener("click", () => formGoster(masalarCache.find((m) => m.id === b.dataset.duzenle))));
   listeEl.querySelectorAll("[data-sil]").forEach((b) => b.addEventListener("click", () => silOnayla(b.dataset.sil)));
+
+  // Plan düzenleyici açıksa ve şu an bir çip sürüklenmiyorsa tazele.
+  if (planAcik && !document.querySelector(".masa-plan-cip.suruklenen")) planCiz();
 }
 
 function formGoster(masa = null) {

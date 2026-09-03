@@ -1,11 +1,27 @@
 import { db } from "../../shared/firebase-config.js";
 import {
-  collection, doc, getDoc, updateDoc, onSnapshot, query, where,
+  collection, doc, getDoc, updateDoc, onSnapshot, query, where, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { sayfaKorumaBaslat, cikisYap } from "../../shared/auth.js";
-import { escapeHtml, tarihFormat, bildirimGoster, snapshotHataYakala } from "../../shared/utils.js";
+import { pwaBaslat } from "../../shared/pwa.js";
+import { escapeHtml, tarihFormat, bildirimGoster, snapshotHataYakala, baglantiDurumuBaslat, sesliUyari, sekmeDikkat } from "../../shared/utils.js";
+
+pwaBaslat();
+baglantiDurumuBaslat();
 
 let siparislerCache = [];
+// Sesli uyarı için: en son bilinen "yeni" (mutfağa yeni düşmüş) sipariş
+// id'leri — sonraki snapshot'ta yeni bir id belirirse bip çalar.
+let oncekiYeniIdler = new Set();
+let ilkYuklemeYapildi = false;
+
+// Hazırlama süresi eşiği (sipariş oluşturulduğundan bu yana geçen dakika):
+// UYARI_DK'yı geçince kart turuncu, KRITIK_DK'yı geçince kırmızı + yanıp söner.
+// "Hazır" sütununda ise sipariş hazır olduğundan beri SERVIS_UYARI_DK'dan
+// fazla beklediyse (yemek soğuyor) kırmızı uyarı verilir.
+const UYARI_DK = 15;
+const KRITIK_DK = 25;
+const SERVIS_UYARI_DK = 5;
 
 async function baslat() {
   const { subeId, ad } = await sayfaKorumaBaslat(["mutfak", "admin"]);
@@ -32,10 +48,63 @@ async function baslat() {
       siparislerCache = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((s) => s.durum === "yeni" || s.durum === "hazirlaniyor" || s.durum === "hazir");
+
+      // Mutfağa YENİ düşen sipariş(ler) için sesli + görsel uyarı — ilk
+      // yüklemede çalmaz (o an listedekilerin hepsi "yeni" gibi görünür).
+      const yeniIdler = new Set(siparislerCache.filter((s) => s.durum === "yeni").map((s) => s.id));
+      if (ilkYuklemeYapildi) {
+        const taze = [...yeniIdler].filter((id) => !oncekiYeniIdler.has(id));
+        if (taze.length > 0) {
+          sesliUyari(2);
+          sekmeDikkat(`${taze.length} yeni sipariş`);
+          bildirimGoster(`🆕 ${taze.length} yeni sipariş geldi!`, "bilgi");
+        }
+      }
+      oncekiYeniIdler = yeniIdler;
+      ilkYuklemeYapildi = true;
+
       render();
     },
     snapshotHataYakala("mutfak-siparisler")
   );
+
+  // Kartlardaki süre sayaçları/gecikme uyarısı, sipariş listesi değişmese de
+  // saniyeler ilerledikçe güncellenmeli — her 15 sn'de bir tazele.
+  setInterval(sureleriGuncelle, 15000);
+}
+
+function dakikaMetni(dk) {
+  if (dk < 1) return "az önce";
+  if (dk < 60) return `${dk} dk`;
+  return `${Math.floor(dk / 60)} sa ${dk % 60} dk`;
+}
+
+// Kart HTML'ini yeniden üretmeden (buton dinleyicileri korunur) yalnızca süre
+// rozetlerini ve gecikme sınıflarını günceller.
+function sureleriGuncelle() {
+  const simdi = Date.now();
+  document.querySelectorAll(".siparis-karti").forEach((kart) => {
+    const durum = kart.dataset.durum;
+    const basla = Number(kart.dataset.basla) || 0;
+    const sureChip = kart.querySelector(".sure-chip");
+    if (basla && sureChip) {
+      const dk = Math.floor((simdi - basla) / 60000);
+      sureChip.textContent = `⏱️ ${dakikaMetni(dk)}`;
+      const kritik = durum !== "hazir" && dk >= KRITIK_DK;
+      const uyari = durum !== "hazir" && !kritik && dk >= UYARI_DK;
+      sureChip.classList.toggle("sure-uyari", uyari);
+      sureChip.classList.toggle("sure-kritik", kritik);
+      kart.classList.toggle("gecikme-uyari", uyari);
+      kart.classList.toggle("gecikme-kritik", kritik);
+    }
+    const hazir = Number(kart.dataset.hazir) || 0;
+    const servisChip = kart.querySelector(".servis-bekleme-chip");
+    if (hazir && servisChip) {
+      const dk = Math.floor((simdi - hazir) / 60000);
+      servisChip.textContent = `🍽️ ${dakikaMetni(dk)} servis bekliyor`;
+      servisChip.classList.toggle("sure-kritik", dk >= SERVIS_UYARI_DK);
+    }
+  });
 }
 
 function siraliListe(durum) {
@@ -60,6 +129,8 @@ function render() {
   renderSutun("yeni-liste", yeniListe, "yeni");
   renderSutun("hazirlaniyor-liste", hazirlaniyorListe, "hazirlaniyor");
   renderSutun("hazir-liste", hazirListe, "hazir");
+
+  sureleriGuncelle();
 }
 
 function renderSutun(elementId, liste, durum) {
@@ -72,10 +143,14 @@ function renderSutun(elementId, liste, durum) {
   el.innerHTML = liste
     .map(
       (s) => `
-    <div class="siparis-karti ${durum} ${durum === "yeni" ? "yeni-vurgu" : ""}" data-siparis="${s.id}">
+    <div class="siparis-karti ${durum} ${durum === "yeni" ? "yeni-vurgu" : ""}" data-siparis="${s.id}" data-durum="${durum}" data-basla="${(s.onaylanmaZamani || s.olusturmaZamani)?.toMillis?.() || 0}" data-hazir="${s.hazirZamani?.toMillis?.() || 0}">
       <div class="ust">
         <span class="masa-adi">${escapeHtml(s.masaAd || s.masaId)}</span>
         <span class="saat">${tarihFormat(s.olusturmaZamani)}</span>
+      </div>
+      <div class="sure-satir">
+        <span class="sure-chip">⏱️ —</span>
+        ${durum === "hazir" && s.hazirZamani ? `<span class="servis-bekleme-chip">🍽️ —</span>` : ""}
       </div>
       <div class="garson">Garson: ${escapeHtml(s.garsonAdi || "—")}</div>
       <div class="kalemler">
@@ -106,7 +181,12 @@ function renderSutun(elementId, liste, durum) {
 
 async function durumGuncelle(siparisId, yeniDurum) {
   try {
-    await updateDoc(doc(db, "siparisler", siparisId), { durum: yeniDurum });
+    const guncelleme = { durum: yeniDurum };
+    // "Hazır" olduğu anı kaydet ki servis bekleme süresi ("yemek soğuyor")
+    // hesaplanabilsin. Geri alınırsa temizlenir.
+    if (yeniDurum === "hazir") guncelleme.hazirZamani = serverTimestamp();
+    else if (yeniDurum === "hazirlaniyor") guncelleme.hazirZamani = null;
+    await updateDoc(doc(db, "siparisler", siparisId), guncelleme);
   } catch (err) {
     bildirimGoster("Hata: " + err.message, "hata");
   }

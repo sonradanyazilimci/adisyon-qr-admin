@@ -42,4 +42,23 @@ body { background: #1c2530; color: #fff; }
   50% { box-shadow: 0 4px 22px rgba(230,126,34,.65); }
 }
 
+/* Hazırlama süresi sayacı + gecikme uyarısı */
+.sure-satir { display: flex; flex-wrap: wrap; gap: 8px; margin: -4px 0 10px; }
+.sure-chip, .servis-bekleme-chip {
+  font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px;
+  background: rgba(255,255,255,.12); color: #cfd6dd;
+}
+.sure-chip.sure-uyari { background: rgba(243,156,18,.22); color: #f6b93b; }
+.sure-chip.sure-kritik, .servis-bekleme-chip.sure-kritik { background: rgba(231,76,60,.25); color: #ff7063; }
+
+.siparis-karti.gecikme-uyari { border-left-color: #f39c12; }
+.siparis-karti.gecikme-kritik {
+  border-left-color: #e74c3c;
+  animation: gecikme-yanip-son 1.2s ease-in-out infinite;
+}
+@keyframes gecikme-yanip-son {
+  0%, 100% { box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+  50% { box-shadow: 0 4px 22px rgba(231,76,60,.6); }
+}
+
 .bos-durum { color: #7f8c9a; }

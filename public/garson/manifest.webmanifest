@@ -1,0 +1,15 @@
+{
+  "id": "/garson",
+  "name": "Garson Terminali",
+  "short_name": "Garson",
+  "description": "Restoran garson sipariş terminali",
+  "start_url": "/garson",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f6f8",
+  "theme_color": "#d35400",
+  "icons": [
+    { "src": "/shared/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/shared/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
