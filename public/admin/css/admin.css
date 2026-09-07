@@ -54,6 +54,23 @@
 .kritik-satir { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--renk-kenar); font-size: 14px; }
 .kritik-satir:last-child { border-bottom: none; }
 
+/* Kategoriler listesi — ana / alt kategori satırları (tema-uyumlu).
+   Eski sürümde alt satırlara satır içi background:#fafbfc veriliyordu; bu
+   karanlık temada açık zemin + açık yazı = okunmaz, aydınlık temada da
+   sayfa zeminiyle neredeyse aynı olup hiyerarşiyi belli etmiyordu. Artık
+   iç içe geçmişlik girinti + tema değişkenli zemin + sol vurgu ile veriliyor. */
+.kategori-satir-ana { box-shadow: inset 4px 0 0 var(--renk-ana), var(--golge); }
+.kategori-satir-alt {
+  margin-left: 26px;
+  background: var(--renk-ikincil-bg);
+  box-shadow: inset 3px 0 0 var(--renk-kenar);
+}
+.kategori-satir-alt .ana-bilgi strong { font-weight: 600; }
+
+@media (max-width: 900px) {
+  .kategori-satir-alt { margin-left: 14px; }
+}
+
 /* Sade veri tablosu — puantaj/muhasebe gibi tarih bazlı, satır sayısı çok
    olabilen listeler için kart yığını yerine tek bakışta taranabilir tablo. */
 .veri-tablo { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }

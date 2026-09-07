@@ -37,9 +37,9 @@ function render() {
   listeEl.innerHTML = sirali
     .map(
       (k) => `
-    <div class="liste-satir" style="${k.derinlik ? "margin-left:28px;background:#fafbfc;" : ""}">
+    <div class="liste-satir ${k.derinlik ? "kategori-satir-alt" : "kategori-satir-ana"}">
       <div class="ana-bilgi">
-        <strong>${k.derinlik ? "↳ " : ""}${escapeHtml(k.ad)}</strong>
+        <strong>${escapeHtml(k.ad)}</strong>
         <span>Sıra: ${k.sira ?? 0}${k.derinlik ? " · Alt kategori" : ""}</span>
       </div>
       <div class="eylemler">
