@@ -253,6 +253,8 @@ async function baslat() {
   });
   masaGorunumYenile();
 
+  panelAyiriciBaslat();
+
   document.getElementById("garson-atama-goster-buton").addEventListener("click", () => {
     garsonAtamaPaneliAcik = !garsonAtamaPaneliAcik;
     if (!garsonAtamaPaneliAcik) { garsonAtamaModu = null; renderMasalar(); }
@@ -340,6 +342,101 @@ async function baslat() {
       await puantajOtomatikGiris(auth.currentUser.uid);
     }
   }
+}
+
+// ── Sürüklenebilir panel ayırıcısı ──────────────────────────────────────
+// Masalar ızgarası ile sağdaki detay/ödeme paneli arasındaki genişlik,
+// ortadaki ayraç fareyle (veya dokunarak) sürüklenerek ayarlanır. Seçilen
+// genişlik --detay-genislik CSS değişkenine yazılır ve localStorage'da
+// saklanır; pencere daralınca panellerden biri ezilmesin diye yeniden
+// sınırlanır. Mobilde (≤800px) paneller alt alta olduğu için ayraç gizli.
+const DETAY_GENISLIK_ANAHTARI = "adisyon_detay_genislik";
+const DETAY_GENISLIK_VARSAYILAN = 440;
+
+function detayGenisligiUygula(px, kaydet) {
+  const govde = document.querySelector(".adisyon-govde");
+  if (!govde) return DETAY_GENISLIK_VARSAYILAN;
+  const ic = govde.clientWidth - 44;            // yatay padding (22 + 22)
+  const enAz = 320;
+  const enCok = Math.max(enAz, Math.min(720, ic - 300 - 24)); // masalar ≥ 300, ayraç 24
+  const deger = Math.round(Math.max(enAz, Math.min(enCok, px)));
+  govde.style.setProperty("--detay-genislik", deger + "px");
+  if (kaydet) {
+    try { localStorage.setItem(DETAY_GENISLIK_ANAHTARI, String(deger)); } catch { /* yoksay */ }
+  }
+  return deger;
+}
+
+function detayGenisligiMevcut(govde) {
+  return parseInt(getComputedStyle(govde).getPropertyValue("--detay-genislik"), 10) || DETAY_GENISLIK_VARSAYILAN;
+}
+
+function panelAyiriciBaslat() {
+  const ayirici = document.getElementById("panel-ayirici");
+  const govde = document.querySelector(".adisyon-govde");
+  if (!ayirici || !govde) return;
+
+  let kayitli = DETAY_GENISLIK_VARSAYILAN;
+  try {
+    const v = Number(localStorage.getItem(DETAY_GENISLIK_ANAHTARI));
+    if (v > 0) kayitli = v;
+  } catch { /* yoksay */ }
+  detayGenisligiUygula(kayitli, false);
+
+  let rafId = 0;
+  let sonX = 0;
+  let tasindi = false;
+  // Detay paneli govde'nin sağ iç kenarına yaslı → genişlik = sağ kenar − imleç
+  const imlectenGenislik = () => govde.getBoundingClientRect().right - sonX - 22;
+  const uygulaRaf = () => {
+    rafId = 0;
+    detayGenisligiUygula(imlectenGenislik(), false);
+  };
+  const hareket = (e) => {
+    sonX = e.clientX;
+    tasindi = true;
+    if (!rafId) rafId = requestAnimationFrame(uygulaRaf);
+  };
+  const bitir = (e) => {
+    ayirici.classList.remove("suruklenen");
+    document.body.classList.remove("panel-suruklenirken");
+    try { ayirici.releasePointerCapture(e.pointerId); } catch { /* yoksay */ }
+    window.removeEventListener("pointermove", hareket);
+    window.removeEventListener("pointerup", bitir);
+    if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+    // Son değeri imleç konumundan hesaplayıp kaydet — hızlı bir "flick"
+    // sürüklemede bekleyen rAF hiç çalışmadan bitebilir, o yüzden burada
+    // doğrudan hesaplıyoruz (sadece gerçekten hareket olduysa).
+    detayGenisligiUygula(tasindi ? imlectenGenislik() : detayGenisligiMevcut(govde), true);
+  };
+
+  ayirici.addEventListener("pointerdown", (e) => {
+    if (window.matchMedia("(max-width: 800px)").matches) return;
+    e.preventDefault();
+    sonX = e.clientX;
+    tasindi = false;
+    ayirici.classList.add("suruklenen");
+    document.body.classList.add("panel-suruklenirken");
+    try { ayirici.setPointerCapture(e.pointerId); } catch { /* yoksay */ }
+    window.addEventListener("pointermove", hareket);
+    window.addEventListener("pointerup", bitir);
+  });
+
+  // Çift tıkla → varsayılan genişliğe dön
+  ayirici.addEventListener("dblclick", () => detayGenisligiUygula(DETAY_GENISLIK_VARSAYILAN, true));
+
+  // Klavye: sol/sağ ok genişliği 24px değiştirir (sol = detay paneli genişler)
+  ayirici.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const delta = e.key === "ArrowLeft" ? 24 : -24;
+    detayGenisligiUygula(detayGenisligiMevcut(govde) + delta, true);
+  });
+
+  // Pencere yeniden boyutlanınca genişliği yeni sınırlara oturt
+  window.addEventListener("resize", debounce(() => {
+    detayGenisligiUygula(detayGenisligiMevcut(govde), false);
+  }, 150));
 }
 
 let kilitSeciliPersonel = null;

@@ -52,10 +52,37 @@ body { background: var(--renk-arkaplan); }
 .gs-satir { display: flex; justify-content: space-between; font-size: 14px; padding: 6px 0; border-bottom: 1px solid var(--renk-kenar); }
 .gs-satir.gs-vurgu { font-weight: 800; font-size: 15px; border-bottom: none; margin-top: 4px; }
 
-.adisyon-govde { display: flex; gap: 20px; padding: 20px 22px 40px; align-items: flex-start; flex-wrap: wrap; }
-/* Sol (masalar) panel ekranın büyük kısmını alsın; sağ (detay/ödeme) panel
-   geniş ekranlarda gereksiz yayılmasın diye üst sınırla sabit tutulur. */
-.masalar-panel { flex: 1 1 460px; min-width: 300px; }
+/* İki panel (masalar | detay) arasındaki genişlik, ortadaki sürüklenebilir
+   ayırıcı ile ayarlanır ve --detay-genislik değişkeninde tutulur (JS
+   localStorage'dan geri yükler). gap: 0 — ayraç kendi boşluğunu/çizgisini verir. */
+.adisyon-govde { display: flex; gap: 0; padding: 20px 22px 40px; align-items: flex-start; flex-wrap: wrap; }
+.masalar-panel { flex: 1 1 380px; min-width: 300px; }
+
+/* Sürüklenebilir dikey ayırıcı */
+.panel-ayirici {
+  flex: 0 0 24px; align-self: stretch; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  cursor: col-resize; touch-action: none; -webkit-tap-highlight-color: transparent;
+}
+.panel-ayirici::before {
+  content: ""; position: absolute; top: 6px; bottom: 6px; left: 50%;
+  width: 2px; transform: translateX(-50%); background: var(--renk-kenar);
+  border-radius: 2px; transition: background .15s ease;
+}
+.panel-ayirici-tutamac {
+  position: relative; z-index: 1; width: 8px; height: 48px; border-radius: 6px;
+  background: var(--renk-kenar); box-shadow: 0 0 0 3px var(--renk-arkaplan);
+  transition: background .15s ease;
+}
+.panel-ayirici:hover::before,
+.panel-ayirici.suruklenen::before,
+.panel-ayirici:focus-visible::before { background: var(--renk-ana); }
+.panel-ayirici:hover .panel-ayirici-tutamac,
+.panel-ayirici.suruklenen .panel-ayirici-tutamac,
+.panel-ayirici:focus-visible .panel-ayirici-tutamac { background: var(--renk-ana); }
+.panel-ayirici:focus-visible { outline: none; }
+/* Sürükleme sırasında metin seçilmesin, imleç tüm ekranda col-resize kalsın */
+body.panel-suruklenirken { user-select: none; cursor: col-resize; }
 .masalar-panel h2 { font-size: 15px; margin: 0; }
 .masalar-panel-baslik { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
 
@@ -149,7 +176,10 @@ body { background: var(--renk-arkaplan); }
   50% { box-shadow: 0 0 0 4px rgba(211,84,0,.35); }
 }
 
-.detay-panel { flex: 1 1 420px; min-width: 330px; max-width: 540px; background: var(--renk-kart); border-radius: 14px; box-shadow: var(--golge); padding: 20px; }
+.detay-panel {
+  flex: 0 0 var(--detay-genislik, 440px); min-width: 320px; max-width: 720px;
+  background: var(--renk-kart); border-radius: 14px; box-shadow: var(--golge); padding: 20px;
+}
 .detay-panel h2 { margin: 0; }
 .detay-panel-baslik { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .masa-eylem-satir { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -251,9 +281,11 @@ body { background: var(--renk-arkaplan); }
 @media (max-width: 800px) {
   .adisyon-govde { flex-direction: column; padding: 16px 12px 40px; }
   /* Kolonlu düzende min-width, panelleri ekrandan taşırıp (yatay kaydırma)
-     "Ürün Ekle" ızgarasını görünmez kılıyordu — mobilde panel tam genişlik. */
+     "Ürün Ekle" ızgarasını görünmez kılıyordu — mobilde panel tam genişlik.
+     Sürüklenebilir ayırıcı da mobilde gizlenir (paneller alt alta). */
+  .panel-ayirici { display: none; }
   .masalar-panel, .detay-panel { min-width: 0; width: 100%; flex-basis: auto; max-width: none; }
-  .detay-panel { padding: 16px; }
+  .detay-panel { padding: 16px; margin-top: 16px; }
   /* Alttaki sabit "Sepeti Gör" çubuğunun ürünlerin son satırını örtmemesi için */
   #adisyon-menu-alani { padding-bottom: 84px; }
 }
