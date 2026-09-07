@@ -5,7 +5,11 @@
   width: 230px; flex-shrink: 0; background: #1c2530; color: #fff;
   display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
 }
-.logo-alan { font-size: 20px; font-weight: 800; padding: 20px 18px; display: flex; align-items: center; gap: 8px; }
+.logo-alan { font-size: 20px; font-weight: 800; padding: 20px 18px 8px; display: flex; align-items: center; gap: 8px; }
+.kullanici-kimlik {
+  padding: 0 18px 14px; font-size: 12px; font-weight: 800; letter-spacing: .04em;
+  color: #9aa4b2; text-transform: uppercase; word-break: break-word;
+}
 .kenar-cubugu nav { display: flex; flex-direction: column; gap: 2px; padding: 0 10px; flex: 1; overflow-y: auto; }
 .nav-buton {
   background: none; color: #c7ccd4; text-align: left; padding: 11px 12px; border-radius: 8px;
@@ -17,8 +21,10 @@
 #kullanici-bilgisi { margin-bottom: 10px; word-break: break-word; }
 
 .icerik-alani { flex: 1; padding: 26px 32px 60px; max-width: 1400px; }
-.ust-bar { margin-bottom: 20px; }
+.ust-bar { margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .ust-bar h1 { margin: 0; font-size: 24px; }
+.ust-bar-eylemler { display: flex; align-items: center; gap: 8px; }
+#cikis-buton-ust { display: none; }
 
 .sekme-icerik[hidden] { display: none; }
 .sekme-eylemler { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
@@ -30,8 +36,8 @@
    (adisyon ekranı da ön muhasebe özet kartlarında aynı sınıfları kullanıyor). */
 
 .urun-liste-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
-.urun-karti { background: #fff; border-radius: 12px; box-shadow: var(--golge); overflow: hidden; display: flex; flex-direction: column; }
-.urun-karti img { width: 100%; height: 120px; object-fit: cover; background: #eef1f5; }
+.urun-karti { background: var(--renk-kart); border-radius: 12px; box-shadow: var(--golge); overflow: hidden; display: flex; flex-direction: column; }
+.urun-karti img { width: 100%; height: 120px; object-fit: cover; background: var(--renk-ikincil-bg); }
 .urun-karti .icerik { padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
 .urun-karti .ust-satir { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
 .urun-karti .fiyat { font-weight: 800; color: var(--renk-ana); white-space: nowrap; }
@@ -41,11 +47,11 @@
 .urun-karti.pasif { opacity: .5; }
 
 .masa-kart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
-.masa-karti { background: #fff; border-radius: 12px; box-shadow: var(--golge); padding: 14px; text-align: center; }
+.masa-karti { background: var(--renk-kart); border-radius: 12px; box-shadow: var(--golge); padding: 14px; text-align: center; }
 .masa-karti .durum-rozet { margin: 6px 0 10px; }
 .masa-karti .eylemler { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
 
-.kritik-satir { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eef1f5; font-size: 14px; }
+.kritik-satir { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--renk-kenar); font-size: 14px; }
 .kritik-satir:last-child { border-bottom: none; }
 
 /* Sade veri tablosu — puantaj/muhasebe gibi tarih bazlı, satır sayısı çok
@@ -76,7 +82,7 @@
 
 .bar-satir { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .bar-satir .ad { width: 140px; font-size: 13px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bar-satir .bar-dis { flex: 1; background: #eef1f5; border-radius: 6px; height: 18px; overflow: hidden; }
+.bar-satir .bar-dis { flex: 1; background: var(--renk-ikincil-bg); border-radius: 6px; height: 18px; overflow: hidden; }
 .bar-satir .bar-ic { background: var(--renk-ana); height: 100%; border-radius: 6px; }
 .bar-satir .adet { min-width: 60px; text-align: right; font-size: 13px; font-weight: 700; flex-shrink: 0; white-space: nowrap; }
 
@@ -116,8 +122,24 @@
 
 @media (max-width: 900px) {
   #uygulama { flex-direction: column; }
-  .kenar-cubugu { width: 100%; height: auto; position: relative; flex-direction: row; flex-wrap: wrap; }
-  .kenar-cubugu nav { flex-direction: row; flex-wrap: wrap; overflow: visible; }
+  .kenar-cubugu {
+    width: 100%; height: auto; position: sticky; top: 0; z-index: 100;
+    flex-direction: column; box-shadow: 0 2px 10px rgba(0,0,0,.25);
+  }
+  .logo-alan { padding: 12px 16px 4px; font-size: 18px; }
+  .kullanici-kimlik { padding: 0 16px 10px; font-size: 11px; }
+  /* Sekme menüsü: alt alta yığılmak yerine tek satırda yatay kaydırılır */
+  .kenar-cubugu nav {
+    flex-direction: row; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+    gap: 6px; padding: 0 10px 10px; -webkit-overflow-scrolling: touch;
+  }
+  .kenar-cubugu nav::-webkit-scrollbar { height: 0; }
+  .nav-buton { white-space: nowrap; flex-shrink: 0; padding: 9px 12px; }
+  /* Mobilde çıkış, üst bardaki "Çıkış" düğmesiyle yapılır */
   .kenar-cubugu-alt { display: none; }
-  .icerik-alani { padding: 18px; }
+  #cikis-buton-ust { display: inline-block; }
+  .ust-bar h1 { font-size: 20px; }
+  .icerik-alani { padding: 16px 14px 60px; }
+  .sekme-eylemler { gap: 8px; }
+  .urun-liste-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 }

@@ -1,4 +1,5 @@
 import { sayfaKorumaBaslat, cikisYap } from "../../shared/auth.js";
+import { temaBaslat } from "../../shared/utils.js";
 
 import * as panel from "./panel.js";
 import * as subeler from "./subeler.js";
@@ -11,6 +12,8 @@ import * as puantaj from "./puantaj.js";
 import * as muhasebe from "./muhasebe.js";
 import * as raporlar from "./raporlar.js";
 import * as ayarlar from "./ayarlar.js";
+
+const ROL_ETIKET = { admin: "Yönetici", garson: "Garson", kasa: "Kasa", mutfak: "Mutfak" };
 
 const SEKME_BASLIKLARI = {
   panel: "Panel",
@@ -27,13 +30,19 @@ const SEKME_BASLIKLARI = {
 };
 
 async function baslat() {
-  const { user } = await sayfaKorumaBaslat(["admin"]);
+  const { user, rol, ad } = await sayfaKorumaBaslat(["admin"]);
 
   document.getElementById("yukleniyor-ekrani").remove();
   document.getElementById("uygulama").classList.remove("uygulama-gizli");
-  document.getElementById("kullanici-bilgisi").textContent = `👤 ${user.displayName || user.email}`;
+
+  // Sol üstte "AD - GÖREV" (ör. DURU KENAR - YÖNETİCİ)
+  const kimlikMetni = `${ad || user.displayName || user.email} — ${ROL_ETIKET[rol] || rol}`.toLocaleUpperCase("tr");
+  document.getElementById("kullanici-kimlik").textContent = kimlikMetni;
+  document.getElementById("kullanici-bilgisi").textContent = `👤 ${ad || user.displayName || user.email}`;
 
   document.getElementById("cikis-buton").addEventListener("click", cikisYap);
+  document.getElementById("cikis-buton-ust").addEventListener("click", cikisYap);
+  temaBaslat();
 
   // Sekme geçişleri
   document.querySelectorAll(".nav-buton").forEach((btn) => {

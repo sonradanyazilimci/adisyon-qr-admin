@@ -127,6 +127,7 @@ body { background: var(--renk-arkaplan); }
   padding: 12px; font-family: "Courier New", monospace; font-size: 12px; line-height: 1.5;
   white-space: pre-wrap; max-height: 40vh; overflow-y: auto; margin: 0 0 12px;
 }
+.dijital-fis-eylemler { display: flex; flex-direction: column; gap: 8px; }
 @keyframes masaCagriNabiz {
   0%, 100% { box-shadow: var(--golge); }
   50% { box-shadow: 0 0 0 3px rgba(211,84,0,.35); }
@@ -246,7 +247,18 @@ body { background: var(--renk-arkaplan); }
    mutfak fişleri de aynı sınıfları kullanıyor, tek yerden yönetiliyor). */
 
 @media (max-width: 800px) {
-  .adisyon-govde { flex-direction: column; }
+  .adisyon-govde { flex-direction: column; padding: 16px 12px 40px; }
+  /* Kolonlu düzende min-width, panelleri ekrandan taşırıp (yatay kaydırma)
+     "Ürün Ekle" ızgarasını görünmez kılıyordu — mobilde panel tam genişlik. */
+  .masalar-panel, .detay-panel { min-width: 0; width: 100%; }
+  .detay-panel { padding: 16px; }
+  /* Alttaki sabit "Sepeti Gör" çubuğunun ürünlerin son satırını örtmemesi için */
+  #adisyon-menu-alani { padding-bottom: 84px; }
+}
+
+@media (max-width: 380px) {
+  /* Dar telefonlarda ürün ızgarası yine de en az 2 sütun göstersin */
+  .pos-urun-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
 }
 
 @media (max-width: 560px) {

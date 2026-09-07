@@ -2,7 +2,7 @@ import { db } from "../../shared/firebase-config.js";
 import {
   collection, doc, getDoc, onSnapshot, query,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { siparisTaslakOlustur, garsonCagir, hesapIste, odemeBildir } from "../../shared/siparis.js";
+import { siparisTaslakOlustur, garsonCagir, hesapIste } from "../../shared/siparis.js";
 import { pwaBaslat } from "../../shared/pwa.js";
 import {
   paraFormat, escapeHtml, alerjenRozetleriHtml, ALERJEN_LISTESI, bildirimGoster, debounce,
@@ -50,9 +50,6 @@ function gonderilenEkle(kayit) {
   const liste = gonderilenOku();
   liste.push(kayit);
   localStorage.setItem(gonderilenAnahtari(), JSON.stringify(liste));
-}
-function gonderilenToplam() {
-  return gonderilenOku().reduce((acc, k) => acc + (Number(k.tutar) || 0), 0);
 }
 
 async function baslat() {
@@ -110,7 +107,7 @@ async function baslat() {
   document.getElementById("sepet-bar").addEventListener("click", sepetModalGoster);
 
   const odeButon = document.getElementById("ode-buton");
-  if (sube?.odemeLinki || sube?.iban || gonderilenOku().length) odeButon.hidden = false;
+  odeButon.hidden = false;
   odeButon.addEventListener("click", odemeModalGoster);
 
   sepetBarGuncelle();
@@ -199,6 +196,7 @@ function detayGoster(urun) {
   katman.innerHTML = `
     <div class="alt-sayfa">
       <div class="alt-sayfa-tutamac"></div>
+      <button class="alt-sayfa-kapat" type="button" aria-label="Kapat">✕</button>
       <img class="detay-gorsel" src="${urun.gorselUrl || "https://placehold.co/500x300?text=%F0%9F%8D%BD"}" alt="${escapeHtml(urun.ad)}" />
       <h2>${escapeHtml(urun.ad)}</h2>
       <div class="detay-fiyat">${paraFormat(fiyat)}</div>
@@ -221,6 +219,7 @@ function detayGoster(urun) {
     </div>`;
   document.body.appendChild(katman);
   katman.addEventListener("click", (e) => { if (e.target === katman) katman.remove(); });
+  katman.querySelector(".alt-sayfa-kapat").addEventListener("click", () => katman.remove());
 
   const adetEl = katman.querySelector("#detay-adet");
   const ekleButon = katman.querySelector("#detay-sepete-ekle");
@@ -263,6 +262,7 @@ function sepetModalGoster() {
     const toplamTutar = sepet.reduce((acc, s) => acc + s.adet * s.fiyat, 0);
     return `
       <div class="alt-sayfa-tutamac"></div>
+      <button class="alt-sayfa-kapat" type="button" aria-label="Kapat">✕</button>
       <h2>Sepetiniz</h2>
       <div class="sepet-listesi">
         ${sepet.length === 0 ? `<div class="bos-durum">Sepetiniz boş.</div>` : sepet.map((s, i) => `
@@ -289,6 +289,7 @@ function sepetModalGoster() {
 
   function bagla() {
     const icerikEl = katman.querySelector("#sepet-icerik");
+    icerikEl.querySelector(".alt-sayfa-kapat")?.addEventListener("click", () => katman.remove());
     icerikEl.querySelectorAll("[data-arti]").forEach((b) => b.addEventListener("click", () => {
       sepet[b.dataset.arti].adet++;
       sepetYaz(sepet);
@@ -363,58 +364,30 @@ async function hesapIsteTiklandi() {
   }
 }
 
-// "💳 Öde" — bu cihazdan gönderilen siparişlerin toplamı + şubenin ödeme
-// linki / IBAN'ı + "Ödedim, bildir" butonu. (Tam entegre online ödeme sunucu
-// tarafı gerektirir — bkz. functions/index.js; bu sürüm link/havale odaklı.)
+// "💳 Öde" — Çevrimiçi ödeme sistemi henüz geliştirme aşamasında. Şimdilik
+// müşteriye bir bilgi notu gösterilir; asıl ödeme kasadan / garsondan yapılır.
+// (Ödeme entegrasyonu eklendiğinde bu fonksiyon eski akışıyla değiştirilecek —
+// bkz. git geçmişi / functions/index.js.)
 function odemeModalGoster() {
-  const gonderilenler = gonderilenOku();
-  const toplam = gonderilenToplam();
   const katman = document.createElement("div");
   katman.className = "alt-sayfa-katman";
-  const ibanBlok = sube?.iban ? `
-    <div class="odeme-iban-kutu">
-      <div style="font-size:12px;color:var(--renk-yazi-soluk);">IBAN${sube.ibanAdi ? ` — ${escapeHtml(sube.ibanAdi)}` : ""}</div>
-      <div style="font-weight:800;letter-spacing:.5px;word-break:break-all;">${escapeHtml(sube.iban)}</div>
-      <button id="iban-kopya" class="btn-ikincil btn-tam" style="margin-top:8px;">📋 IBAN'ı Kopyala</button>
-    </div>` : "";
-  const linkBlok = sube?.odemeLinki ? `
-    <a href="${escapeHtml(sube.odemeLinki)}" target="_blank" rel="noopener" class="btn-birincil btn-tam" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;">💳 Ödeme Sayfasını Aç</a>` : "";
-
   katman.innerHTML = `
     <div class="alt-sayfa">
       <div class="alt-sayfa-tutamac"></div>
-      <h2>Ödeme</h2>
-      ${gonderilenler.length ? `
-        <div class="odeme-siparis-liste">
-          ${gonderilenler.flatMap((k) => k.urunler).map((u) => `
-            <div class="sepet-satir"><div class="ad">${u.adet}x ${escapeHtml(u.ad)}</div>
-            <div style="font-weight:700;">${paraFormat(u.adet * u.fiyat)}</div></div>`).join("")}
-        </div>
-        <div class="sepet-toplam-satir"><span>Bu cihazdan gönderilen toplam</span><span>${paraFormat(toplam)}</span></div>
-        <p style="font-size:11px;color:var(--renk-yazi-soluk);margin-top:-4px;">Not: Bu tutar yalnızca bu telefondan verdiğiniz siparişleri kapsar. Masadaki kesin tutar için garsonunuzdan hesap isteyin.</p>
-      ` : `<p style="color:var(--renk-yazi-soluk);">Bu telefondan henüz sipariş gönderilmedi.</p>`}
-      ${linkBlok}
-      ${ibanBlok}
-      ${(linkBlok || ibanBlok) ? "" : `<p style="color:var(--renk-yazi-soluk);">Bu şube için çevrimiçi ödeme bilgisi tanımlı değil — lütfen kasadan ödeyin.</p>`}
-      <button id="odedim-bildir" class="btn-yesil btn-tam" style="margin-top:12px;">✅ Ödedim, kasaya bildir</button>
+      <button class="alt-sayfa-kapat" type="button" aria-label="Kapat">✕</button>
+      <div class="odeme-yakinda">
+        <div class="odeme-yakinda-ikon">🚧</div>
+        <h2>Ödeme sistemi geliştirme aşamasında</h2>
+        <p>Çevrimiçi ödeme yakında burada olacak. Şimdilik hesabınızı ödemek için
+        garsonunuzdan hesap isteyebilir ya da kasaya başvurabilirsiniz.</p>
+        <button id="odeme-yakinda-tamam" class="btn-birincil btn-tam">Anladım</button>
+      </div>
     </div>`;
   document.body.appendChild(katman);
-  katman.addEventListener("click", (e) => { if (e.target === katman) katman.remove(); });
-
-  katman.querySelector("#iban-kopya")?.addEventListener("click", () => {
-    navigator.clipboard.writeText(sube.iban).then(() => bildirimGoster("IBAN kopyalandı.", "basari"));
-  });
-  katman.querySelector("#odedim-bildir").addEventListener("click", async (e) => {
-    e.target.disabled = true;
-    try {
-      await odemeBildir(masaId);
-      bildirimGoster("Ödeme bildiriminiz kasaya iletildi. Teşekkürler! 🙏", "basari");
-      katman.remove();
-    } catch (err) {
-      bildirimGoster("Hata: " + err.message, "hata");
-      e.target.disabled = false;
-    }
-  });
+  const kapat = () => katman.remove();
+  katman.addEventListener("click", (e) => { if (e.target === katman) kapat(); });
+  katman.querySelector(".alt-sayfa-kapat").addEventListener("click", kapat);
+  katman.querySelector("#odeme-yakinda-tamam").addEventListener("click", kapat);
 }
 
 baslat();

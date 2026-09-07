@@ -1798,44 +1798,29 @@ function fisMetniOlustur(masa, siparisler, toplam, odemeler = [], alinan = 0) {
   return satirlar.join("\n");
 }
 
-// Dijital fiş paylaşım modalı — WhatsApp / SMS / kopyala / (varsa) sistem
-// paylaşımı. Termal fiş yazdırma devre dışı olduğundan asıl "fiş verme" yolu.
+// Dijital fiş modalı — fişin metnini gösterir; altta "Paylaş" (cihazın
+// sistem paylaşım menüsü: WhatsApp/e-posta/not vb.) ve "Kapat" düğmeleri.
+// Kapatma alanı bilerek ALTTA ve tam genişlikte — küçük bir sağ üst çarpı
+// yerine kolay dokunulur bir hedef.
 function dijitalFisGoster(fisMetni) {
   const katman = document.createElement("div");
   katman.className = "modal-katman";
+  const paylasilabilir = typeof navigator !== "undefined" && !!navigator.share;
   katman.innerHTML = `
-    <div class="modal-kutu" style="position:relative;max-width:420px;">
-      <button class="modal-kapat">&times;</button>
+    <div class="modal-kutu" style="max-width:420px;">
       <h3>📱 Dijital Fiş</h3>
       <pre class="dijital-fis-onizleme">${escapeHtml(fisMetni)}</pre>
-      <div class="form-alan"><label>Müşteri telefonu (opsiyonel, WhatsApp/SMS için)</label>
-        <input id="dijital-fis-tel" type="tel" inputmode="tel" placeholder="Örn: 5321234567" /></div>
-      <div class="detay-eylemler" style="flex-wrap:wrap;">
-        <button id="fis-whatsapp" class="btn-yesil btn-tam">🟢 WhatsApp</button>
-        <button id="fis-sms" class="btn-ikincil btn-tam">✉️ SMS</button>
-        <button id="fis-kopya" class="btn-ikincil btn-tam">📋 Kopyala</button>
-        ${navigator.share ? `<button id="fis-paylas" class="btn-ikincil btn-tam">📤 Paylaş</button>` : ""}
+      <div class="dijital-fis-eylemler">
+        ${paylasilabilir ? `<button id="fis-paylas" class="btn-birincil btn-tam">📤 Paylaş</button>` : ""}
+        <button id="fis-kapat" class="btn-ikincil btn-tam">Kapat</button>
       </div>
     </div>`;
   document.body.appendChild(katman);
-  katman.querySelector(".modal-kapat").addEventListener("click", () => katman.remove());
-  katman.addEventListener("click", (e) => { if (e.target === katman) katman.remove(); });
-
-  const telAl = () => (katman.querySelector("#dijital-fis-tel").value || "").replace(/\D/g, "");
-  const enc = encodeURIComponent(fisMetni);
-  katman.querySelector("#fis-whatsapp").addEventListener("click", () => {
-    const tel = telAl();
-    window.open(`https://wa.me/${tel ? (tel.length === 10 ? "90" + tel : tel) : ""}?text=${enc}`, "_blank", "noopener");
-  });
-  katman.querySelector("#fis-sms").addEventListener("click", () => {
-    const tel = telAl();
-    window.location.href = `sms:${tel}${/(iPhone|iPad|Macintosh)/.test(navigator.userAgent) ? "&" : "?"}body=${enc}`;
-  });
-  katman.querySelector("#fis-kopya").addEventListener("click", () => {
-    navigator.clipboard.writeText(fisMetni).then(() => bildirimGoster("Fiş kopyalandı.", "basari"));
-  });
+  const kapat = () => katman.remove();
+  katman.querySelector("#fis-kapat").addEventListener("click", kapat);
+  katman.addEventListener("click", (e) => { if (e.target === katman) kapat(); });
   katman.querySelector("#fis-paylas")?.addEventListener("click", () => {
-    navigator.share({ text: fisMetni }).catch(() => {});
+    navigator.share({ text: fisMetni, title: "Dijital Fiş" }).catch(() => {});
   });
 }
 
