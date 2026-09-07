@@ -53,7 +53,9 @@ body { background: var(--renk-arkaplan); }
 .gs-satir.gs-vurgu { font-weight: 800; font-size: 15px; border-bottom: none; margin-top: 4px; }
 
 .adisyon-govde { display: flex; gap: 20px; padding: 20px 22px 40px; align-items: flex-start; flex-wrap: wrap; }
-.masalar-panel { flex: 1; min-width: 300px; }
+/* Sol (masalar) panel ekranın büyük kısmını alsın; sağ (detay/ödeme) panel
+   geniş ekranlarda gereksiz yayılmasın diye üst sınırla sabit tutulur. */
+.masalar-panel { flex: 1 1 460px; min-width: 300px; }
 .masalar-panel h2 { font-size: 15px; margin: 0; }
 .masalar-panel-baslik { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
 
@@ -78,7 +80,7 @@ body { background: var(--renk-arkaplan); }
   0%, 100% { box-shadow: var(--golge); }
   50% { box-shadow: 0 0 0 4px rgba(155,89,182,.35); }
 }
-.masalar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.masalar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 10px; }
 
 /* Plan (salon yerleşimi) görünümü — admin'in "Masa Planı" ile belirlediği
    x/y yüzdelerine göre masalar bir zemin üzerine yerleştirilir. */
@@ -97,9 +99,9 @@ body { background: var(--renk-arkaplan); }
 .masa-plan-konumsuz-etiket { font-size: 12px; font-weight: 700; color: var(--renk-yazi-soluk); width: 100%; }
 .masa-plan-konumsuz .masa-kart-adisyon { width: 120px; }
 .masa-kart-adisyon {
-  background: var(--renk-kart); border-radius: 14px; padding: 18px 8px; min-height: 84px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  text-align: center; box-shadow: var(--golge); font-size: 15px;
+  background: var(--renk-kart); border-radius: 12px; padding: 13px 8px 12px; min-height: 74px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  text-align: center; box-shadow: var(--golge); font-size: 14.5px;
   font-weight: 800; cursor: pointer; border: 2px solid transparent; position: relative;
   transition: transform .1s ease, border-color .15s ease;
   -webkit-tap-highlight-color: transparent; user-select: none;
@@ -147,7 +149,7 @@ body { background: var(--renk-arkaplan); }
   50% { box-shadow: 0 0 0 4px rgba(211,84,0,.35); }
 }
 
-.detay-panel { flex: 1.4; min-width: 340px; background: var(--renk-kart); border-radius: 14px; box-shadow: var(--golge); padding: 20px; }
+.detay-panel { flex: 1 1 420px; min-width: 330px; max-width: 540px; background: var(--renk-kart); border-radius: 14px; box-shadow: var(--golge); padding: 20px; }
 .detay-panel h2 { margin: 0; }
 .detay-panel-baslik { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .masa-eylem-satir { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -250,7 +252,7 @@ body { background: var(--renk-arkaplan); }
   .adisyon-govde { flex-direction: column; padding: 16px 12px 40px; }
   /* Kolonlu düzende min-width, panelleri ekrandan taşırıp (yatay kaydırma)
      "Ürün Ekle" ızgarasını görünmez kılıyordu — mobilde panel tam genişlik. */
-  .masalar-panel, .detay-panel { min-width: 0; width: 100%; }
+  .masalar-panel, .detay-panel { min-width: 0; width: 100%; flex-basis: auto; max-width: none; }
   .detay-panel { padding: 16px; }
   /* Alttaki sabit "Sepeti Gör" çubuğunun ürünlerin son satırını örtmemesi için */
   #adisyon-menu-alani { padding-bottom: 84px; }
