@@ -69,15 +69,16 @@ function render() {
   listeEl.innerHTML = liste
     .map(
       (u) => `
-    <div class="urun-karti ${u.aktif === false ? "pasif" : ""}">
+    <div class="urun-karti ${u.aktif === false ? "pasif" : ""} ${u.tukendi ? "tukendi" : ""}">
       <img src="${u.gorselUrl || "https://placehold.co/300x180?text=Görsel+Yok"}" alt="${escapeHtml(u.ad)}" loading="lazy" />
       <div class="icerik">
         <div class="ust-satir"><strong>${escapeHtml(u.ad)}</strong><span class="fiyat">${paraFormat(u.fiyat)}</span></div>
-        <div class="etiket-satir">${escapeHtml(kategoriAdi(u.kategoriId))} · ${u.kalori ?? "-"} kcal ${u.aktif === false ? "· <b style='color:var(--renk-kirmizi)'>PASİF</b>" : ""} ${subeFarkiEtiketi(u)}</div>
+        <div class="etiket-satir">${escapeHtml(kategoriAdi(u.kategoriId))} · ${u.kalori ?? "-"} kcal ${u.aktif === false ? "· <b style='color:var(--renk-kirmizi)'>PASİF</b>" : ""} ${u.tukendi ? "· <b style='color:#e67e22'>TÜKENDİ</b>" : ""} ${subeFarkiEtiketi(u)}</div>
         <div class="aciklama">${escapeHtml((u.aciklama || "").slice(0, 70))}</div>
         <div>${alerjenRozetleriHtml(u.alerjenler, u.glutensiz)}</div>
       </div>
       <div class="eylemler">
+        <button class="btn-ikincil btn-kucuk" data-tukendi="${u.id}">${u.tukendi ? "↩︎ Satışa Aç" : "⛔ Tükendi"}</button>
         <button class="btn-ikincil btn-kucuk" data-duzenle="${u.id}">Düzenle</button>
         <button class="btn-kirmizi btn-kucuk" data-sil="${u.id}">Sil</button>
       </div>
@@ -88,9 +89,31 @@ function render() {
   listeEl.querySelectorAll("[data-duzenle]").forEach((b) =>
     b.addEventListener("click", () => formGoster(urunlerCache.find((u) => u.id === b.dataset.duzenle)))
   );
+  listeEl.querySelectorAll("[data-tukendi]").forEach((b) =>
+    b.addEventListener("click", () => tukendiToggle(b.dataset.tukendi))
+  );
   listeEl.querySelectorAll("[data-sil]").forEach((b) =>
     b.addEventListener("click", () => silOnayla(b.dataset.sil))
   );
+}
+
+// "Tükendi" durumunu hızlıca değiştir (formu açmadan). Ürün listede/menüde
+// görünmeye devam eder ama "TÜKENDİ" etiketiyle işaretlenir ve sipariş
+// alınamaz — sadece admin bu durumu değiştirebilir.
+async function tukendiToggle(id) {
+  const u = urunlerCache.find((x) => x.id === id);
+  if (!u) return;
+  const yeni = !u.tukendi;
+  try {
+    await updateDoc(doc(db, "urunler", id), {
+      tukendi: yeni,
+      tukendiZamani: yeni ? serverTimestamp() : null,
+      guncellemeZamani: serverTimestamp(),
+    });
+    bildirimGoster(yeni ? `"${u.ad}" tükendi olarak işaretlendi.` : `"${u.ad}" tekrar satışta.`, "basari");
+  } catch (err) {
+    bildirimGoster("Hata: " + err.message, "hata");
+  }
 }
 
 // Bir ürünün kaç şubede genel ayardan farklı (pasif veya farklı fiyat)
@@ -168,7 +191,12 @@ function formGoster(urun = null) {
         <div class="form-satir">
           <div class="form-alan"><label><input type="checkbox" name="glutensiz" style="width:auto;" ${urun?.glutensiz ? "checked" : ""}/> Glutensiz</label></div>
           <div class="form-alan"><label><input type="checkbox" name="aktif" style="width:auto;" ${!urun || urun.aktif !== false ? "checked" : ""}/> Menüde Aktif</label></div>
+          <div class="form-alan"><label><input type="checkbox" name="tukendi" style="width:auto;" ${urun?.tukendi ? "checked" : ""}/> Tükendi (stokta yok)</label></div>
         </div>
+        <p style="font-size:12px;color:var(--renk-yazi-soluk);margin:-6px 0 12px;">
+          <b>Menüde Aktif</b> kapalıysa ürün hiçbir ekranda görünmez.
+          <b>Tükendi</b> işaretliyse ürün menüde/adisyonda görünmeye devam eder ama “TÜKENDİ” etiketiyle gösterilir ve sipariş alınamaz. Bu durumu yalnızca yönetici değiştirebilir.
+        </p>
 
         <div class="form-alan">
           <label>Reçete (hammadde tüketimi)</label>
@@ -235,6 +263,7 @@ function formGoster(urun = null) {
         }
       });
 
+      const tukendiSecili = fd.get("tukendi") === "on";
       const veri = {
         ad: fd.get("ad").trim(),
         aciklama: fd.get("aciklama").trim(),
@@ -245,6 +274,10 @@ function formGoster(urun = null) {
         alerjenler,
         glutensiz: fd.get("glutensiz") === "on",
         aktif: fd.get("aktif") === "on",
+        tukendi: tukendiSecili,
+        // İşaretlenme anını koru: zaten tükendiyse eski zamanı bırak, yeni
+        // işaretlendiyse şimdi damgala, kaldırıldıysa temizle.
+        tukendiZamani: tukendiSecili ? (urun?.tukendi ? (urun.tukendiZamani ?? serverTimestamp()) : serverTimestamp()) : null,
         recete,
         subeAyarlari,
       };

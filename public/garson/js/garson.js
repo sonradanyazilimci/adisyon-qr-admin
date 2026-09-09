@@ -1,6 +1,6 @@
 import { db, auth } from "../../shared/firebase-config.js";
 import {
-  collection, doc, getDoc, updateDoc, onSnapshot, query, where, serverTimestamp,
+  collection, doc, getDoc, updateDoc, onSnapshot, query, where,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { siparisOlustur, siparisiOnayla, siparisiGuncelle, siparisiIptalEt } from "../../shared/siparis.js";
 import { sayfaKorumaBaslat, cikisYap } from "../../shared/auth.js";
@@ -403,34 +403,17 @@ function renderUrunler() {
         <span class="fiyat">${paraFormat(urunSubeFiyati(u, kullanici.subeId))}</span>
         <div class="ukk-rozet">${u.kalori ?? "-"} kcal ${alerjenRozetleriHtml(u.alerjenler, u.glutensiz)}</div>
       </div>
-      <button class="ukk-86-buton" data-bitti="${u.id}">${tukendi ? "↩︎ Satışa aç" : "86"}</button>
     </div>`;
   }).join("");
 
-  listeEl.querySelectorAll("[data-urun]").forEach((satir) => satir.addEventListener("click", (e) => {
+  listeEl.querySelectorAll("[data-urun]").forEach((satir) => satir.addEventListener("click", () => {
     const urun = urunlerCache.find((u) => u.id === satir.dataset.urun);
-    if (e.target.closest(".ukk-86-buton")) { urunTukendiToggle(urun); return; }
     if (!seciliMasa) { bildirimGoster("Önce bir masa seçin.", "uyari"); return; }
+    // "Tükendi" durumunu SADECE admin (ürünler sayfasından) değiştirebilir —
+    // garson yalnızca görür ve sipariş alamaz.
     if (urunTukendiMi(urun)) { bildirimGoster(`${urun.ad} şu an tükendi.`, "uyari"); return; }
     urunEkleModali(urun);
   }));
-}
-
-// Bir ürünü "tükendi (86)" işaretler / geri alır (canlı senkron — tüm
-// ekranlar kendiliğinden tazelenir).
-async function urunTukendiToggle(urun) {
-  if (!urun) return;
-  const yeni = !urunTukendiMi(urun);
-  if (yeni && !confirm(`"${urun.ad}" tükendi olarak işaretlensin mi?\n\nTüm ekranlarda "TÜKENDİ" görünecek ve sipariş alınamayacak.`)) return;
-  try {
-    await updateDoc(doc(db, "urunler", urun.id), {
-      tukendi: yeni,
-      tukendiZamani: yeni ? serverTimestamp() : null,
-    });
-    bildirimGoster(yeni ? `${urun.ad}: tükendi işaretlendi.` : `${urun.ad}: tekrar satışta.`, "basari");
-  } catch (err) {
-    bildirimGoster("Hata: " + err.message, "hata");
-  }
 }
 
 function urunEkleModali(urun) {

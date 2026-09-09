@@ -109,15 +109,12 @@ service cloud.firestore {
       allow write: if rol('admin');
     }
 
-    // Ürünler — herkes okuyabilir, sadece admin yazar
+    // Ürünler — herkes okuyabilir, SADECE admin yazar. "Tükendi" durumu dahil
+    // ürünle ilgili her şeyi (fiyat, kategori, aktiflik, tükendi) yalnızca
+    // admin ürünler sayfasından belirler; kasa/garson yalnızca görür.
     match /urunler/{id} {
       allow read: if true;
       allow write: if rol('admin');
-      // Kasa/garson bir ürünü "tükendi (86)" olarak işaretleyebilir veya geri
-      // alabilir — SADECE bu iki alan. Menüden gizlemez, sadece o an satışa
-      // kapatır (fiyat/kategori/aktiflik gibi alanlara dokunamaz).
-      allow update: if (rol('kasa') || rol('garson'))
-        && sadeceAlanlar(['tukendi', 'tukendiZamani']);
     }
 
     // Hammaddeler / stok. Sipariş oluşturma artık müşteri tarafında stok

@@ -93,11 +93,6 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
   position: absolute; top: 6px; left: 6px; background: var(--renk-kirmizi); color: #fff;
   font-size: 10px; font-weight: 800; letter-spacing: .5px; padding: 3px 7px; border-radius: 6px;
 }
-.ukk-86-buton {
-  margin: 0 8px 8px; padding: 6px 8px; font-size: 11px; font-weight: 800;
-  background: var(--renk-ikincil-bg); color: var(--renk-yazi-soluk); border-radius: 8px;
-}
-.urun-kare-kart.tukendi .ukk-86-buton { background: var(--renk-kirmizi); color: #fff; }
 .urun-kare-kart img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: var(--renk-ikincil-bg); }
 .ukk-govde { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 3px; }
 .ukk-govde h3 {

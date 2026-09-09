@@ -290,14 +290,8 @@ body.panel-suruklenirken { user-select: none; cursor: col-resize; }
   position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%;
   background: var(--renk-kart); font-size: 11px; padding: 0; display: flex; align-items: center; justify-content: center;
 }
-.pos-86-buton {
-  position: absolute; top: 4px; left: 4px; min-width: 22px; height: 22px; border-radius: 999px;
-  background: var(--renk-kart); color: var(--renk-yazi-soluk); font-size: 10px; font-weight: 800;
-  padding: 0 6px; display: flex; align-items: center; justify-content: center; line-height: 1;
-}
-.pos-urun-kart.tukendi { opacity: .55; }
+.pos-urun-kart.tukendi { opacity: .6; }
 .pos-urun-kart.tukendi .fiyat { text-decoration: line-through; }
-.pos-urun-kart.tukendi .pos-86-buton { background: var(--renk-kirmizi); color: #fff; }
 .pos-tukendi-etiket {
   margin-top: 4px; font-size: 10px; font-weight: 800; letter-spacing: .5px;
   color: var(--renk-kirmizi);

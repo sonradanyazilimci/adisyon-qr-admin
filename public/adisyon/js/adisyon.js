@@ -1584,7 +1584,6 @@ function renderMenuUrunleri() {
     return `
     <div class="pos-urun-kart ${tukendi ? "tukendi" : ""}" data-urun="${u.id}">
       <button class="pos-not-buton" data-not="${u.id}" title="Not / adet ekleyerek ekle">✏️</button>
-      <button class="pos-86-buton" data-bitti="${u.id}" title="${tukendi ? "Tekrar satışa aç" : "Tükendi (86) işaretle"}">${tukendi ? "↩︎" : "86"}</button>
       <div class="ad">${escapeHtml(u.ad)}</div>
       <div class="fiyat">${paraFormat(urunSubeFiyati(u, kullanici.subeId))}</div>
       ${tukendi ? `<div class="pos-tukendi-etiket">TÜKENDİ</div>` : ""}
@@ -1593,16 +1592,14 @@ function renderMenuUrunleri() {
 
   el.querySelectorAll(".pos-urun-kart").forEach((kart) => kart.addEventListener("click", (e) => {
     const urun = urunlerCache.find((u) => u.id === kart.dataset.urun);
-    if (e.target.closest(".pos-86-buton")) {
-      urunTukendiToggle(urun);
-      return;
-    }
     if (e.target.closest(".pos-not-buton")) {
       urunEkleModali(urun);
       return;
     }
+    // "Tükendi" durumunu SADECE admin (ürünler sayfasından) değiştirebilir —
+    // kasa yalnızca görür ve sipariş alamaz.
     if (urunTukendiMi(urun)) {
-      bildirimGoster(`${urun.ad} şu an tükendi. Satışa açmak için karttaki ↩︎ düğmesini kullanın.`, "uyari");
+      bildirimGoster(`${urun.ad} şu an tükendi.`, "uyari");
       return;
     }
     const fiyat = urunSubeFiyati(urun, kullanici.subeId);
@@ -1611,23 +1608,6 @@ function renderMenuUrunleri() {
     sepetYaz();
     bildirimGoster(`${urun.ad} eklendi.`, "basari");
   }));
-}
-
-// Bir ürünü "tükendi (86)" işaretler / geri alır. Canlı senkronize
-// urunlerCache onSnapshot'ı tetiklendiği için ekran kendiliğinden tazelenir.
-async function urunTukendiToggle(urun) {
-  if (!urun) return;
-  const yeni = !urunTukendiMi(urun);
-  if (yeni && !confirm(`"${urun.ad}" tükendi olarak işaretlensin mi?\n\nTüm ekranlarda (adisyon, garson, QR menü) "TÜKENDİ" görünecek ve sipariş alınamayacak.`)) return;
-  try {
-    await updateDoc(doc(db, "urunler", urun.id), {
-      tukendi: yeni,
-      tukendiZamani: yeni ? serverTimestamp() : null,
-    });
-    bildirimGoster(yeni ? `${urun.ad}: tükendi işaretlendi.` : `${urun.ad}: tekrar satışta.`, "basari");
-  } catch (err) {
-    bildirimGoster("Hata: " + err.message, "hata");
-  }
 }
 
 function urunEkleModali(urun) {
