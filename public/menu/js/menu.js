@@ -6,7 +6,7 @@ import { siparisTaslakOlustur, garsonCagir, hesapIste } from "../../shared/sipar
 import { pwaBaslat } from "../../shared/pwa.js";
 import {
   paraFormat, escapeHtml, alerjenRozetleriHtml, ALERJEN_LISTESI, bildirimGoster, debounce,
-  kategorilerSirali, kategoriVeAltlariIds, temaBaslat, urunSubedeAktifMi, urunSubeFiyati, urunTukendiMi,
+  kategorilerSirali, kategoriVeAltlariIds, temaBaslat, urunSubedeAktifMi, urunSubeFiyati, urunTukendiMi, urunStoktaYokMu,
 } from "../../shared/utils.js";
 
 temaBaslat();
@@ -158,14 +158,14 @@ function renderUrunler() {
   listeEl.querySelectorAll("[data-urun]").forEach((satir) => {
     satir.addEventListener("click", () => {
       const urun = urunlerCache.find((u) => u.id === satir.dataset.urun);
-      if (urunTukendiMi(urun)) { bildirimGoster(`${urun.ad} şu an tükendi.`, "uyari"); return; }
+      if (urunTukendiMi(urun) || urunStoktaYokMu(urun, subeIdEfektif)) { bildirimGoster(`${urun.ad} şu an tükendi.`, "uyari"); return; }
       detayGoster(urun);
     });
   });
 }
 
 function urunSatiriHtml(u) {
-  const tukendi = urunTukendiMi(u);
+  const tukendi = urunTukendiMi(u) || urunStoktaYokMu(u, subeIdEfektif);
   return `
     <div class="urun-satir ${tukendi ? "tukendi" : ""}" data-urun="${u.id}">
       <div class="metin">

@@ -9,7 +9,7 @@ import { pwaBaslat } from "../../shared/pwa.js";
 import {
   paraFormat, escapeHtml, alerjenRozetleriHtml, bildirimGoster, debounce, MASA_DURUMLARI,
   SIPARIS_DURUMLARI, tarihFormat, kategorilerSirali, kategoriVeAltlariIds, temaBaslat,
-  urunSubedeAktifMi, urunSubeFiyati, urunTukendiMi, baglantiDurumuBaslat, sesliUyari, sekmeDikkat,
+  urunSubedeAktifMi, urunSubeFiyati, urunTukendiMi, urunStoktaYokMu, baglantiDurumuBaslat, sesliUyari, sekmeDikkat,
 } from "../../shared/utils.js";
 
 temaBaslat();
@@ -393,7 +393,7 @@ function renderUrunler() {
   if (liste.length === 0) { listeEl.innerHTML = `<div class="bos-durum">Ürün bulunamadı.</div>`; return; }
 
   listeEl.innerHTML = liste.map((u) => {
-    const tukendi = urunTukendiMi(u);
+    const tukendi = urunTukendiMi(u) || urunStoktaYokMu(u, kullanici.subeId);
     return `
     <div class="urun-kare-kart ${tukendi ? "tukendi" : ""}" data-urun="${u.id}">
       <img src="${u.gorselUrl || "https://placehold.co/300x300?text=%F0%9F%8D%BD"}" alt="" loading="lazy" />
@@ -409,9 +409,9 @@ function renderUrunler() {
   listeEl.querySelectorAll("[data-urun]").forEach((satir) => satir.addEventListener("click", () => {
     const urun = urunlerCache.find((u) => u.id === satir.dataset.urun);
     if (!seciliMasa) { bildirimGoster("Önce bir masa seçin.", "uyari"); return; }
-    // "Tükendi" durumunu SADECE admin (ürünler sayfasından) değiştirebilir —
+    // "Tükendi" / stok durumunu SADECE admin (ürünler sayfasından) belirler —
     // garson yalnızca görür ve sipariş alamaz.
-    if (urunTukendiMi(urun)) { bildirimGoster(`${urun.ad} şu an tükendi.`, "uyari"); return; }
+    if (urunTukendiMi(urun) || urunStoktaYokMu(urun, kullanici.subeId)) { bildirimGoster(`${urun.ad} şu an tükendi.`, "uyari"); return; }
     urunEkleModali(urun);
   }));
 }

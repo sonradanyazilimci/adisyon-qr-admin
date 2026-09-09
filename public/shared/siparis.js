@@ -68,6 +68,16 @@ async function kalemleriOlustur(urunlerGirdi, subeId = null) {
   return siparisKalemleri;
 }
 
+/** Kalem listesini urunId -> toplam adet Map'ine indirger (ürün bazlı stok düşümü için). */
+function urunAdetHesapla(kalemler) {
+  const m = new Map();
+  (kalemler || []).forEach((k) => {
+    if (!k.urunId) return;
+    m.set(k.urunId, (m.get(k.urunId) || 0) + (Number(k.adet) || 0));
+  });
+  return m;
+}
+
 /** Kalem listesinin (urunId+adet) reçeteye göre toplam hammadde tüketimini hesaplar. */
 async function tuketimHesapla(kalemler) {
   const tuketim = new Map();
@@ -100,18 +110,30 @@ async function tuketimHesapla(kalemler) {
  * çünkü çağıran fonksiyon o durumda ikisini de [] geçer.
  */
 async function stokFarkiUygulaVeKaydet({
-  siparisRef, eskiStokKalemleri, yeniStokKalemleri, kaydedilecekUrunler, stokDusuldu, ekAlanlar, yeniKayit,
+  siparisRef, eskiStokKalemleri, yeniStokKalemleri, kaydedilecekUrunler, stokDusuldu, ekAlanlar, yeniKayit, subeId = null,
 }) {
   const eskiTuketim = await tuketimHesapla(eskiStokKalemleri);
   const yeniTuketim = await tuketimHesapla(yeniStokKalemleri);
   const tumHammaddeIdleri = Array.from(new Set([...eskiTuketim.keys(), ...yeniTuketim.keys()]));
   const hammaddeRefs = tumHammaddeIdleri.map((id) => doc(db, "hammaddeler", id));
 
+  // Ürün bazlı ADET stoğu (opsiyonel — sadece stokTakip'i açık ürünler için,
+  // ve sadece şube belliyse). Hammadde stoğuyla aynı transaction'da,
+  // ESKİ↔YENİ adet farkı kadar düşülür/iade edilir.
+  const eskiUrunAdet = urunAdetHesapla(eskiStokKalemleri);
+  const yeniUrunAdet = urunAdetHesapla(yeniStokKalemleri);
+  const tumUrunIdleri = subeId ? Array.from(new Set([...eskiUrunAdet.keys(), ...yeniUrunAdet.keys()])) : [];
+  const urunStokRefs = tumUrunIdleri.map((id) => doc(db, "urunler", id));
+
   await runTransaction(db, async (tx) => {
     // Firestore transaction kuralı: önce TÜM okumalar, sonra yazmalar.
     const hammaddeSnaps = [];
     for (const ref of hammaddeRefs) {
       hammaddeSnaps.push(await tx.get(ref));
+    }
+    const urunStokSnaps = [];
+    for (const ref of urunStokRefs) {
+      urunStokSnaps.push(await tx.get(ref));
     }
 
     const guncellemeler = [];
@@ -131,6 +153,23 @@ async function stokFarkiUygulaVeKaydet({
       guncellemeler.push({ ref: snap.ref, id, ad: h.ad, birim: h.birim, eski: mevcutStok, yeni: yeniStok, fark });
     });
 
+    // Ürün bazlı adet stoğu: stokTakip'i açık ürünlerde şubedeki adedi
+    // fark kadar düş / iade et. Yetersizse tüm işlem geri alınır.
+    const urunGuncellemeleri = [];
+    urunStokSnaps.forEach((snap, i) => {
+      const id = tumUrunIdleri[i];
+      const fark = (yeniUrunAdet.get(id) || 0) - (eskiUrunAdet.get(id) || 0); // (+) satış, (-) iade
+      if (fark === 0 || !snap.exists()) return;
+      const u = snap.data();
+      if (u.stokTakip !== true) return;
+      const mevcut = Number(u.stok?.[subeId]) || 0;
+      const yeni = mevcut - fark;
+      if (yeni < 0) {
+        throw new Error(`Yetersiz stok: "${u.ad}" (mevcut: ${mevcut} adet, gereken: ${fark} adet)`);
+      }
+      urunGuncellemeleri.push({ ref: snap.ref, yeni });
+    });
+
     guncellemeler.forEach((g) => {
       tx.update(g.ref, { mevcutStok: g.yeni, guncellemeZamani: serverTimestamp() });
       const hareketRef = doc(collection(db, "stokHareketleri"));
@@ -145,6 +184,10 @@ async function stokFarkiUygulaVeKaydet({
         siparisId: siparisRef.id,
         tarih: serverTimestamp(),
       });
+    });
+
+    urunGuncellemeleri.forEach((g) => {
+      tx.update(g.ref, { [`stok.${subeId}`]: g.yeni });
     });
 
     const siparisVerisi = {
@@ -194,6 +237,7 @@ export async function siparisOlustur({ masaId, urunler, garsonId = null, garsonA
     kaydedilecekUrunler: siparisKalemleri,
     stokDusuldu: true,
     yeniKayit: true,
+    subeId: masa.subeId || null,
     ekAlanlar: {
       masaId, masaAd: masa.ad || masaId, subeId: masa.subeId || null,
       durum: "yeni", garsonId, garsonAdi, olusturmaZamani: serverTimestamp(),
@@ -244,6 +288,7 @@ export async function siparisiOnayla(siparisId) {
     kaydedilecekUrunler: kalemler,
     stokDusuldu: true,
     yeniKayit: false,
+    subeId: s.subeId || null,
     ekAlanlar: { durum: "yeni", onaylanmaZamani: serverTimestamp() },
   });
 }
@@ -278,6 +323,7 @@ export async function siparisiGuncelle(siparisId, yeniKalemlerGirdi) {
     kaydedilecekUrunler: siparisKalemleri,
     stokDusuldu: stokEtkisiVarMi,
     yeniKayit: false,
+    subeId: s.subeId || null,
     ekAlanlar: { duzenlenmeZamani: serverTimestamp() },
   });
 }
@@ -305,6 +351,7 @@ export async function siparisiIptalEt(siparisId, not, iptalEden = "") {
     kaydedilecekUrunler: s.urunler || [], // geçmiş için orijinal liste korunur
     stokDusuldu: false,
     yeniKayit: false,
+    subeId: s.subeId || null,
     ekAlanlar: {
       durum: "iptal",
       iptalNotu: not || "",

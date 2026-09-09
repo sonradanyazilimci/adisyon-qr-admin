@@ -365,6 +365,34 @@ export function urunSubeFiyati(urun, subeId) {
   return typeof ozel?.fiyat === "number" ? ozel.fiyat : Number(urun.fiyat) || 0;
 }
 
+// Ürünün BİRİM MALİYETİ (o şubeye özel maliyet girilmişse o, yoksa genel
+// maliyet). Kâr hesabında (satış fiyatı − maliyet) kullanılır.
+export function urunSubeMaliyeti(urun, subeId) {
+  const ozel = subeId ? urun.subeAyarlari?.[subeId] : null;
+  return typeof ozel?.maliyet === "number" ? ozel.maliyet : Number(urun.maliyet) || 0;
+}
+
+// ── Ürün bazlı ADET stoğu (opsiyonel — `stokTakip` açık ürünler için) ────
+// Hammadde/reçete stoğundan ayrı, doğrudan "kaç adet var" takibi. `stok`
+// alanı { [subeId]: adet } biçiminde şube bazlıdır. Sipariş onaylanınca
+// otomatik düşer, iptalde iade edilir (bkz. shared/siparis.js).
+export function urunStokTakipli(urun) {
+  return urun?.stokTakip === true;
+}
+
+export function urunStokAdedi(urun, subeId) {
+  if (!subeId) return 0;
+  return Number(urun?.stok?.[subeId]) || 0;
+}
+
+// Ürün, stok takibi açık ve ilgili şubede adedi 0/altındaysa satışa kapalıdır
+// (menü/adisyon/garson ekranlarında "TÜKENDİ" gibi gösterilir). Şube belli
+// değilse stok kontrolü yapılamaz — bu durumda satışı ENGELLEMEZ.
+export function urunStoktaYokMu(urun, subeId) {
+  if (!subeId) return false;
+  return urunStokTakipli(urun) && urunStokAdedi(urun, subeId) <= 0;
+}
+
 // "86 / tükendi": kasa veya garson bir ürünü geçici olarak satışa kapatabilir
 // (mutfakta malzemesi bitti). Ürün menüde görünmeye devam eder ama "TÜKENDİ"
 // etiketiyle işaretlenir ve sepete eklenemez. Admin panelinden "aktif"

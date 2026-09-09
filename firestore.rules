@@ -110,11 +110,15 @@ service cloud.firestore {
     }
 
     // Ürünler — herkes okuyabilir, SADECE admin yazar. "Tükendi" durumu dahil
-    // ürünle ilgili her şeyi (fiyat, kategori, aktiflik, tükendi) yalnızca
-    // admin ürünler sayfasından belirler; kasa/garson yalnızca görür.
+    // ürünle ilgili her şeyi (fiyat, kategori, aktiflik, tükendi, maliyet)
+    // yalnızca admin ürünler sayfasından belirler; kasa/garson yalnızca görür.
     match /urunler/{id} {
       allow read: if true;
       allow write: if rol('admin');
+      // İstisna: satış/iptal sırasında ürün ADET stoğu otomatik güncellenir
+      // (bkz. shared/siparis.js transaction'ı) — personel SADECE `stok`
+      // alanını değiştirebilir, başka hiçbir alana dokunamaz.
+      allow update: if personel() && sadeceAlanlar(['stok']);
     }
 
     // Hammaddeler / stok. Sipariş oluşturma artık müşteri tarafında stok

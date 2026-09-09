@@ -2,7 +2,7 @@ import { db } from "../../shared/firebase-config.js";
 import {
   collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { bildirimGoster, snapshotHataYakala, escapeHtml, paraFormat, alerjenRozetleriHtml, ALERJEN_LISTESI, debounce, kategorilerSirali } from "../../shared/utils.js";
+import { bildirimGoster, snapshotHataYakala, escapeHtml, paraFormat, alerjenRozetleriHtml, ALERJEN_LISTESI, debounce, kategorilerSirali, urunStokTakipli, urunStokAdedi } from "../../shared/utils.js";
 import { kategorilerCache, kategorilerDegisti } from "./kategoriler.js";
 import { hammaddelerCache, hammaddelerDegisti } from "./hammaddeler.js";
 import { subelerCache, subelerDegisti } from "./subeler.js";
@@ -74,6 +74,8 @@ function render() {
       <div class="icerik">
         <div class="ust-satir"><strong>${escapeHtml(u.ad)}</strong><span class="fiyat">${paraFormat(u.fiyat)}</span></div>
         <div class="etiket-satir">${escapeHtml(kategoriAdi(u.kategoriId))} · ${u.kalori ?? "-"} kcal ${u.aktif === false ? "· <b style='color:var(--renk-kirmizi)'>PASİF</b>" : ""} ${u.tukendi ? "· <b style='color:#e67e22'>TÜKENDİ</b>" : ""} ${subeFarkiEtiketi(u)}</div>
+        <div class="maliyet-satir">${maliyetKarEtiketi(u)}</div>
+        ${stokOzetiHtml(u)}
         <div class="aciklama">${escapeHtml((u.aciklama || "").slice(0, 70))}</div>
         <div>${alerjenRozetleriHtml(u.alerjenler, u.glutensiz)}</div>
       </div>
@@ -124,16 +126,45 @@ function subeFarkiEtiketi(u) {
   return `· <b style="color:#9b59b6;">${farkSayisi} şubede farklı</b>`;
 }
 
-// Bir şube satırı: "Bu şubede satılıyor" onay kutusu + varsa fiyat farkı.
-// Onay kutusu kapatılırsa ürün o şubede hiç görünmez (fiyat girilse de
-// dikkate alınmaz). Fiyat boş bırakılırsa genel fiyat kullanılır.
-function subeAyarSatiriHtml(sube, ayar) {
+// Maliyet + brüt kâr marjı etiketi (kart üzerinde).
+function maliyetKarEtiketi(u) {
+  const maliyet = Number(u.maliyet) || 0;
+  const fiyat = Number(u.fiyat) || 0;
+  if (maliyet <= 0) return `<span class="tablo-soluk">Maliyet girilmemiş</span>`;
+  const kar = fiyat - maliyet;
+  const marj = fiyat > 0 ? (kar / fiyat) * 100 : 0;
+  const renk = kar >= 0 ? "var(--renk-yesil)" : "var(--renk-kirmizi)";
+  return `Maliyet: <b>${paraFormat(maliyet)}</b> · Kâr: <b style="color:${renk}">${paraFormat(kar)}</b> <span class="tablo-soluk">(%${marj.toFixed(0)})</span>`;
+}
+
+// Stok takibi açık ürünlerde şube bazlı adet özeti.
+function stokOzetiHtml(u) {
+  if (!urunStokTakipli(u)) return "";
+  const satirlar = subelerCache
+    .map((s) => {
+      const adet = urunStokAdedi(u, s.id);
+      return `<span class="stok-cip ${adet <= 0 ? "bitti" : ""}">${escapeHtml(s.ad)}: <b>${adet}</b></span>`;
+    })
+    .join("");
+  const toplam = subelerCache.reduce((acc, s) => acc + urunStokAdedi(u, s.id), 0);
+  return `<div class="stok-ozeti">📦 Stok (toplam <b>${toplam}</b>): ${satirlar || "<span class='tablo-soluk'>şube yok</span>"}</div>`;
+}
+
+// Bir şube satırı: "Bu şubede satılıyor" onay kutusu + o şubeye özel
+// fiyat / maliyet / stok. Fiyat & maliyet boş bırakılırsa genel değer
+// kullanılır. Stok alanı yalnızca "Stok takibi" açıkken görünür/kaydedilir.
+function subeAyarSatiriHtml(sube, ayar, stokAdedi, stokTakip) {
   const aktif = ayar?.aktif !== false;
   const fiyat = typeof ayar?.fiyat === "number" ? ayar.fiyat : "";
+  const maliyet = typeof ayar?.maliyet === "number" ? ayar.maliyet : "";
   return `
     <div class="sube-ayar-satir" data-sube="${sube.id}">
       <label class="sube-ayar-checkbox"><input type="checkbox" class="sube-ayar-aktif" ${aktif ? "checked" : ""}/> ${escapeHtml(sube.ad)}</label>
-      <input type="number" class="sube-ayar-fiyat" step="0.01" min="0" placeholder="Genel fiyat" value="${fiyat}" ${aktif ? "" : "disabled"} />
+      <div class="sube-ayar-alanlar">
+        <label>Fiyat<input type="number" class="sube-ayar-fiyat" step="0.01" min="0" placeholder="Genel" value="${fiyat}" ${aktif ? "" : "disabled"} /></label>
+        <label>Maliyet<input type="number" class="sube-ayar-maliyet" step="0.01" min="0" placeholder="Genel" value="${maliyet}" /></label>
+        <label class="sube-ayar-stok-alan" ${stokTakip ? "" : "hidden"}>Stok<input type="number" class="sube-ayar-stok" step="1" min="0" placeholder="0" value="${stokAdedi ?? ""}" /></label>
+      </div>
     </div>`;
 }
 
@@ -173,14 +204,15 @@ function formGoster(urun = null) {
         <div class="form-alan"><label>Açıklama</label><textarea name="aciklama" rows="2">${urun ? escapeHtml(urun.aciklama || "") : ""}</textarea></div>
         <div class="form-satir">
           <div class="form-alan"><label>Fiyat (₺)</label><input name="fiyat" type="number" step="0.01" min="0" required value="${urun ? urun.fiyat : ""}" /></div>
+          <div class="form-alan"><label>Genel Maliyet (₺)</label><input name="maliyet" type="number" step="0.01" min="0" placeholder="0" value="${urun && urun.maliyet != null ? urun.maliyet : ""}" /></div>
           <div class="form-alan"><label>Kalori (kcal) *zorunlu</label><input name="kalori" type="number" step="1" min="0" required value="${urun ? urun.kalori : ""}" /></div>
         </div>
         <div class="form-alan"><label>Görsel URL</label><input name="gorselUrl" type="url" placeholder="https://..." value="${urun ? escapeHtml(urun.gorselUrl || "") : ""}" /></div>
 
-        ${subelerCache.length > 1 ? `
+        ${subelerCache.length >= 1 ? `
         <div class="form-alan">
-          <label>Şubeye Özel Ayarlar (boş bırakılırsa yukarıdaki genel fiyat/durum tüm şubelerde geçerli olur — bu ürün bir şubede satılmıyorsa veya farklı fiyatlanıyorsa burada belirtin)</label>
-          <div id="sube-ayar-alani" class="sube-ayar-grid">${subelerCache.map((s) => subeAyarSatiriHtml(s, urun?.subeAyarlari?.[s.id])).join("")}</div>
+          <label>Şube Bazında Fiyat / Maliyet / Stok (fiyat & maliyet boşsa genel değer geçerli; onay kutusu kapalıysa ürün o şubede hiç görünmez)</label>
+          <div id="sube-ayar-alani" class="sube-ayar-grid">${subelerCache.map((s) => subeAyarSatiriHtml(s, urun?.subeAyarlari?.[s.id], urun?.stok?.[s.id], urun?.stokTakip === true)).join("")}</div>
         </div>` : ""}
 
         <div class="form-alan">
@@ -192,10 +224,12 @@ function formGoster(urun = null) {
           <div class="form-alan"><label><input type="checkbox" name="glutensiz" style="width:auto;" ${urun?.glutensiz ? "checked" : ""}/> Glutensiz</label></div>
           <div class="form-alan"><label><input type="checkbox" name="aktif" style="width:auto;" ${!urun || urun.aktif !== false ? "checked" : ""}/> Menüde Aktif</label></div>
           <div class="form-alan"><label><input type="checkbox" name="tukendi" style="width:auto;" ${urun?.tukendi ? "checked" : ""}/> Tükendi (stokta yok)</label></div>
+          <div class="form-alan"><label><input type="checkbox" name="stokTakip" id="urun-stok-takip" style="width:auto;" ${urun?.stokTakip ? "checked" : ""}/> Stok takibi yap (adet)</label></div>
         </div>
         <p style="font-size:12px;color:var(--renk-yazi-soluk);margin:-6px 0 12px;">
           <b>Menüde Aktif</b> kapalıysa ürün hiçbir ekranda görünmez.
-          <b>Tükendi</b> işaretliyse ürün menüde/adisyonda görünmeye devam eder ama “TÜKENDİ” etiketiyle gösterilir ve sipariş alınamaz. Bu durumu yalnızca yönetici değiştirebilir.
+          <b>Tükendi</b> işaretliyse ürün menüde/adisyonda görünür ama “TÜKENDİ” etiketiyle ve sipariş alınamaz.
+          <b>Stok takibi</b> açıksa yukarıdaki şube satırlarına adet girin — her satışta o şubenin stoğu otomatik düşer, iptalde geri eklenir, stok bitince ürün otomatik “TÜKENDİ” görünür.
         </p>
 
         <div class="form-alan">
@@ -226,7 +260,18 @@ function formGoster(urun = null) {
   katman.querySelectorAll(".sube-ayar-satir").forEach((satir) => {
     const kutu = satir.querySelector(".sube-ayar-aktif");
     const fiyatInput = satir.querySelector(".sube-ayar-fiyat");
-    kutu.addEventListener("change", () => { fiyatInput.disabled = !kutu.checked; });
+    const maliyetInput = satir.querySelector(".sube-ayar-maliyet");
+    kutu.addEventListener("change", () => {
+      fiyatInput.disabled = !kutu.checked;
+      if (maliyetInput) maliyetInput.disabled = !kutu.checked;
+    });
+  });
+
+  // "Stok takibi yap" açılınca/kapanınca şube satırlarındaki adet alanları
+  // görünür/gizli olur.
+  const stokTakipKutu = katman.querySelector("#urun-stok-takip");
+  stokTakipKutu?.addEventListener("change", () => {
+    katman.querySelectorAll(".sube-ayar-stok-alan").forEach((el) => { el.hidden = !stokTakipKutu.checked; });
   });
 
   katman.querySelector("#urun-form").addEventListener("submit", async (e) => {
@@ -247,19 +292,35 @@ function formGoster(urun = null) {
         .filter((r) => r.hammaddeId && r.miktar > 0);
 
       // Şubeye özel ayarlar: SADECE genel ayardan farklı olan şubeler
-      // kaydedilir (aktif=false veya fiyat override) — belirtilmeyen şubeler
-      // için ürün varsayılan (genel) ayarı kullanır.
+      // kaydedilir (pasiflik, fiyat farkı veya maliyet farkı) — belirtilmeyen
+      // şubeler için ürün varsayılan (genel) ayarı kullanır.
       const genelFiyat = Number(fd.get("fiyat")) || 0;
+      const genelMaliyet = Number(fd.get("maliyet")) || 0;
+      const stokTakipSecili = fd.get("stokTakip") === "on";
       const subeAyarlari = {};
+      const stok = {};
       katman.querySelectorAll(".sube-ayar-satir").forEach((satir) => {
         const subeId = satir.dataset.sube;
         const aktifMi = satir.querySelector(".sube-ayar-aktif").checked;
         const fiyatDegeri = satir.querySelector(".sube-ayar-fiyat").value;
+        const maliyetDegeri = satir.querySelector(".sube-ayar-maliyet").value;
         const ozelFiyat = fiyatDegeri !== "" ? Number(fiyatDegeri) : null;
-        if (!aktifMi) {
-          subeAyarlari[subeId] = { aktif: false };
-        } else if (ozelFiyat !== null && ozelFiyat !== genelFiyat) {
-          subeAyarlari[subeId] = { aktif: true, fiyat: ozelFiyat };
+        const ozelMaliyet = maliyetDegeri !== "" ? Number(maliyetDegeri) : null;
+        const ayar = {};
+        if (!aktifMi) ayar.aktif = false;
+        if (aktifMi && ozelFiyat !== null && ozelFiyat !== genelFiyat) ayar.fiyat = ozelFiyat;
+        if (ozelMaliyet !== null && ozelMaliyet !== genelMaliyet) ayar.maliyet = ozelMaliyet;
+        if (Object.keys(ayar).length) subeAyarlari[subeId] = ayar;
+
+        // Stok: takip açıksa girilen adet (boşsa mevcut değeri koru), kapalıysa
+        // eski stok verisini olduğu gibi sakla (yeniden açınca kaybolmasın).
+        const stokDegeri = satir.querySelector(".sube-ayar-stok")?.value;
+        if (stokTakipSecili) {
+          stok[subeId] = stokDegeri === "" || stokDegeri == null
+            ? (Number(urun?.stok?.[subeId]) || 0)
+            : Math.max(0, Math.round(Number(stokDegeri) || 0));
+        } else if (urun?.stok?.[subeId] != null) {
+          stok[subeId] = Number(urun.stok[subeId]) || 0;
         }
       });
 
@@ -269,6 +330,7 @@ function formGoster(urun = null) {
         aciklama: fd.get("aciklama").trim(),
         kategoriId: fd.get("kategoriId"),
         fiyat: genelFiyat,
+        maliyet: genelMaliyet,
         kalori: Number(fd.get("kalori")) || 0,
         gorselUrl,
         alerjenler,
@@ -278,6 +340,8 @@ function formGoster(urun = null) {
         // İşaretlenme anını koru: zaten tükendiyse eski zamanı bırak, yeni
         // işaretlendiyse şimdi damgala, kaldırıldıysa temizle.
         tukendiZamani: tukendiSecili ? (urun?.tukendi ? (urun.tukendiZamani ?? serverTimestamp()) : serverTimestamp()) : null,
+        stokTakip: stokTakipSecili,
+        stok,
         recete,
         subeAyarlari,
       };

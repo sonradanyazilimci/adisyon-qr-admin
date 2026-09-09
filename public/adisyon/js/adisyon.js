@@ -10,7 +10,7 @@ import { pwaBaslat } from "../../shared/pwa.js";
 import {
   paraFormat, escapeHtml, tarihFormat, saatFormat, tarihAnahtari, bildirimGoster, debounce, baglantiDurumuBaslat,
   MASA_DURUMLARI, SIPARIS_DURUMLARI, ALERJEN_LISTESI, kategorilerSirali, kategoriVeAltlariIds, temaBaslat,
-  urunSubedeAktifMi, urunSubeFiyati, urunTukendiMi, YEMEK_CEKI_MARKALARI, KASA_HESAP_ETIKET, KASA_HAREKET_KATEGORILERI,
+  urunSubedeAktifMi, urunSubeFiyati, urunTukendiMi, urunStoktaYokMu, YEMEK_CEKI_MARKALARI, KASA_HESAP_ETIKET, KASA_HAREKET_KATEGORILERI,
 } from "../../shared/utils.js";
 
 const ROL_ETIKET = { admin: "Admin", garson: "Garson", kasa: "Kasa", mutfak: "Mutfak" };
@@ -1604,7 +1604,7 @@ function renderMenuUrunleri() {
   liste = liste.slice().sort((a, b) => (a.ad || "").localeCompare(b.ad || "", "tr"));
 
   el.innerHTML = liste.map((u) => {
-    const tukendi = urunTukendiMi(u);
+    const tukendi = urunTukendiMi(u) || urunStoktaYokMu(u, kullanici.subeId);
     return `
     <div class="pos-urun-kart ${tukendi ? "tukendi" : ""}" data-urun="${u.id}">
       <button class="pos-not-buton" data-not="${u.id}" title="Not / adet ekleyerek ekle">✏️</button>
@@ -1620,9 +1620,9 @@ function renderMenuUrunleri() {
       urunEkleModali(urun);
       return;
     }
-    // "Tükendi" durumunu SADECE admin (ürünler sayfasından) değiştirebilir —
+    // "Tükendi" / stok durumunu SADECE admin (ürünler sayfasından) belirler —
     // kasa yalnızca görür ve sipariş alamaz.
-    if (urunTukendiMi(urun)) {
+    if (urunTukendiMi(urun) || urunStoktaYokMu(urun, kullanici.subeId)) {
       bildirimGoster(`${urun.ad} şu an tükendi.`, "uyari");
       return;
     }

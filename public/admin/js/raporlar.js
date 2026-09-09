@@ -1,11 +1,14 @@
 import { db } from "../../shared/firebase-config.js";
 import { collection, onSnapshot, query } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { paraFormat, escapeHtml, tarihFormat, snapshotHataYakala, tarihAraligiBaslangici } from "../../shared/utils.js";
+import { paraFormat, escapeHtml, tarihFormat, snapshotHataYakala, tarihAraligiBaslangici, urunSubeMaliyeti, urunStokTakipli, urunStokAdedi } from "../../shared/utils.js";
 import { subelerCache, subelerDegisti } from "./subeler.js";
 
 let siparislerCache = [];
 let adisyonlarCache = [];
+let urunlerCache = [];
 const ozetEl = document.getElementById("rapor-ozet");
+const karEl = document.getElementById("rapor-kar");
+const stokEl = document.getElementById("rapor-stok");
 const odemeKirilimEl = document.getElementById("rapor-odeme-kirilim");
 const enCokSatanEl = document.getElementById("rapor-en-cok-satan");
 const urunCiroEl = document.getElementById("rapor-urun-ciro");
@@ -13,6 +16,9 @@ const saatlikEl = document.getElementById("rapor-saatlik");
 const personelEl = document.getElementById("rapor-personel");
 const iptalIkramEl = document.getElementById("rapor-iptal-ikram");
 const aralikEl = document.getElementById("rapor-aralik");
+const ozelTarihEl = document.getElementById("rapor-ozel-tarih");
+const baslangicEl = document.getElementById("rapor-baslangic");
+const bitisEl = document.getElementById("rapor-bitis");
 const subeEl = document.getElementById("rapor-sube");
 
 // Ciroya SADECE gerçekten satışa dönüşen siparişler girer. "onay_bekliyor"
@@ -40,8 +46,21 @@ export function baslat() {
     },
     snapshotHataYakala("raporlar-adisyonlar")
   );
+  onSnapshot(
+    query(collection(db, "urunler")),
+    (snap) => {
+      urunlerCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      render();
+    },
+    snapshotHataYakala("raporlar-urunler")
+  );
   subelerDegisti(() => { renderSubeSecim(); render(); });
-  aralikEl.addEventListener("change", render);
+  aralikEl.addEventListener("change", () => {
+    ozelTarihEl.hidden = aralikEl.value !== "ozel";
+    render();
+  });
+  baslangicEl.addEventListener("change", render);
+  bitisEl.addEventListener("change", render);
   subeEl.addEventListener("change", render);
 }
 
@@ -51,7 +70,23 @@ function renderSubeSecim() {
   subeEl.value = secili;
 }
 
+// Seçili aralığın { baslangic, bitis } sınırlarını döner. Hazır seçenekler
+// için bitis = null (bugüne kadar); "ozel" için tarih kutularından okunur.
+function araligiHesapla() {
+  if (aralikEl.value === "ozel") {
+    const b = baslangicEl.value ? new Date(baslangicEl.value + "T00:00:00") : null;
+    const s = bitisEl.value ? new Date(bitisEl.value + "T23:59:59.999") : null;
+    return { baslangic: b, bitis: s };
+  }
+  return { baslangic: tarihAraligiBaslangici(aralikEl.value), bitis: null };
+}
+
 function aralikAdi() {
+  if (aralikEl.value === "ozel") {
+    const b = baslangicEl.value ? new Date(baslangicEl.value).toLocaleDateString("tr-TR") : "başlangıç";
+    const s = bitisEl.value ? new Date(bitisEl.value).toLocaleDateString("tr-TR") : "bugün";
+    return `${b} – ${s}`;
+  }
   return { bugun: "Bugün", hafta: "Bu Hafta", ay: "Bu Ay", tumu: "Tüm Zamanlar" }[aralikEl.value] || "";
 }
 
@@ -60,32 +95,131 @@ function tarihField(kayit) {
   return t?.toDate ? t.toDate() : null;
 }
 
-function aralikFiltrele(liste, subeFiltre, sinir) {
+function aralikFiltrele(liste, subeFiltre, baslangic, bitis) {
   return liste.filter((k) => {
     if (subeFiltre && k.subeId !== subeFiltre) return false;
-    if (sinir) {
+    if (baslangic || bitis) {
       const t = tarihField(k);
-      if (!t || t < sinir) return false;
+      if (!t) return false;
+      if (baslangic && t < baslangic) return false;
+      if (bitis && t > bitis) return false;
     }
     return true;
   });
 }
 
 function render() {
-  const sinir = tarihAraligiBaslangici(aralikEl.value);
+  const { baslangic, bitis } = araligiHesapla();
   const subeFiltre = subeEl.value;
 
-  const tumSiparis = aralikFiltrele(siparislerCache, subeFiltre, sinir);
+  const tumSiparis = aralikFiltrele(siparislerCache, subeFiltre, baslangic, bitis);
   const satislar = tumSiparis.filter(satisMi);
-  const adisyonlar = aralikFiltrele(adisyonlarCache, subeFiltre, sinir);
+  const adisyonlar = aralikFiltrele(adisyonlarCache, subeFiltre, baslangic, bitis);
 
   renderOzet(satislar);
+  renderKar(satislar, baslangic, bitis);
+  renderStok(subeFiltre);
   renderOdemeKirilim(adisyonlar);
   renderEnCokSatan(satislar);
   renderUrunCiro(satislar);
   renderSaatlik(satislar);
   renderPersonel(satislar);
   renderIptalIkram(tumSiparis, adisyonlar);
+}
+
+// ── Brüt Kâr: Ciro − Ürün Maliyeti (COGS) ──────────────────────────────
+// Her satılan kalemin birim maliyeti, ürünün (şubeye özel varsa o) maliyet
+// alanından okunur. Maliyeti girilmemiş ürünler ayrıca uyarılır.
+function renderKar(satislar, baslangic, bitis) {
+  let toplamCiro = 0;
+  let toplamMaliyet = 0;
+  let maliyetsizAdet = 0;
+  const urunMap = new Map(); // ad -> { adet, ciro, maliyet }
+
+  satislar.forEach((s) => {
+    (s.urunler || []).forEach((k) => {
+      const adet = Number(k.adet) || 0;
+      const ciro = Number(k.tutar ?? adet * (k.fiyat || 0)) || 0;
+      const urun = urunlerCache.find((u) => u.id === k.urunId);
+      const birimMaliyet = urun ? urunSubeMaliyeti(urun, s.subeId) : 0;
+      const maliyet = birimMaliyet * adet;
+      if (birimMaliyet <= 0) maliyetsizAdet += adet;
+
+      toplamCiro += ciro;
+      toplamMaliyet += maliyet;
+      const m = urunMap.get(k.ad) || { adet: 0, ciro: 0, maliyet: 0 };
+      m.adet += adet; m.ciro += ciro; m.maliyet += maliyet;
+      urunMap.set(k.ad, m);
+    });
+  });
+
+  const brutKar = toplamCiro - toplamMaliyet;
+  const marj = toplamCiro > 0 ? (brutKar / toplamCiro) * 100 : 0;
+
+  // Günlük ortalama brüt kâr — aralığın gün sayısına böl.
+  const ilk = baslangic || satislar.reduce((min, s) => {
+    const t = s.olusturmaZamani?.toDate?.();
+    return t && (!min || t < min) ? t : min;
+  }, null);
+  const son = bitis || new Date();
+  const gunSayisi = ilk ? Math.max(1, Math.ceil((son - ilk) / 86400000)) : 1;
+  const gunlukKar = brutKar / gunSayisi;
+
+  const sirali = Array.from(urunMap.entries())
+    .map(([ad, v]) => ({ ad, ...v, kar: v.ciro - v.maliyet }))
+    .sort((a, b) => b.kar - a.kar);
+
+  karEl.innerHTML = `
+    <h3>💰 Brüt Kâr <span class="tablo-soluk">(${aralikAdi()})</span></h3>
+    <div class="panel-kart-grid" style="margin-bottom:14px;">
+      <div class="panel-kart"><div class="etiket">Toplam Ciro</div><div class="deger">${paraFormat(toplamCiro)}</div></div>
+      <div class="panel-kart"><div class="etiket">Ürün Maliyeti (COGS)</div><div class="deger">${paraFormat(toplamMaliyet)}</div></div>
+      <div class="panel-kart"><div class="etiket">Brüt Kâr</div><div class="deger" style="color:${brutKar >= 0 ? "var(--renk-yesil)" : "var(--renk-kirmizi)"};">${paraFormat(brutKar)} <span class="tablo-soluk" style="font-size:14px;">%${marj.toFixed(0)}</span></div></div>
+      <div class="panel-kart"><div class="etiket">Günlük Ort. Brüt Kâr</div><div class="deger">${paraFormat(gunlukKar)}</div></div>
+    </div>
+    ${maliyetsizAdet > 0 ? `<p style="font-size:12px;color:var(--renk-ana);margin:0 0 12px;">⚠️ ${maliyetsizAdet} adet ürünün maliyeti girilmemiş — kâr olduğundan yüksek görünüyor. Ürünler sekmesinden "Genel Maliyet" girin.</p>` : ""}
+    ${sirali.length === 0
+      ? `<div class="bos-durum">Seçilen aralıkta satış yok.</div>`
+      : `<div style="overflow-x:auto;"><table class="veri-tablo">
+          <thead><tr><th>Ürün</th><th style="text-align:right;">Adet</th><th style="text-align:right;">Ciro</th><th style="text-align:right;">Maliyet</th><th style="text-align:right;">Kâr</th><th style="text-align:right;">Marj</th></tr></thead>
+          <tbody>${sirali.map((v) => `
+            <tr>
+              <td>${escapeHtml(v.ad)}</td>
+              <td style="text-align:right;">${v.adet}</td>
+              <td style="text-align:right;">${paraFormat(v.ciro)}</td>
+              <td style="text-align:right;">${paraFormat(v.maliyet)}</td>
+              <td style="text-align:right;font-weight:700;color:${v.kar >= 0 ? "var(--renk-yesil)" : "var(--renk-kirmizi)"};">${paraFormat(v.kar)}</td>
+              <td style="text-align:right;" class="tablo-soluk">${v.ciro > 0 ? "%" + ((v.kar / v.ciro) * 100).toFixed(0) : "—"}</td>
+            </tr>`).join("")}
+          </tbody></table></div>`}
+  `;
+}
+
+// ── Anlık Stok Durumu (stok takibi açık ürünler) ──────────────────────
+function renderStok(subeFiltre) {
+  const takipli = urunlerCache.filter(urunStokTakipli).sort((a, b) => (a.ad || "").localeCompare(b.ad || "", "tr"));
+  const subeler = subeFiltre ? subelerCache.filter((s) => s.id === subeFiltre) : subelerCache;
+
+  if (takipli.length === 0) {
+    stokEl.innerHTML = `<h3>📦 Anlık Stok Durumu</h3><div class="bos-durum">Stok takibi açık ürün yok. Ürünler sekmesinden bir üründe "Stok takibi yap" seçin.</div>`;
+    return;
+  }
+
+  stokEl.innerHTML = `
+    <h3>📦 Anlık Stok Durumu <span class="tablo-soluk">(şu an — tarih filtresinden bağımsız)</span></h3>
+    <div style="overflow-x:auto;"><table class="veri-tablo">
+      <thead><tr><th>Ürün</th>${subeler.map((s) => `<th style="text-align:right;">${escapeHtml(s.ad)}</th>`).join("")}<th style="text-align:right;">Toplam</th></tr></thead>
+      <tbody>${takipli.map((u) => {
+        const adetler = subeler.map((s) => urunStokAdedi(u, s.id));
+        const toplam = adetler.reduce((a, b) => a + b, 0);
+        return `<tr>
+          <td>${escapeHtml(u.ad)}</td>
+          ${adetler.map((a) => `<td style="text-align:right;${a <= 0 ? "color:var(--renk-kirmizi);font-weight:700;" : ""}">${a}</td>`).join("")}
+          <td style="text-align:right;font-weight:700;">${toplam}</td>
+        </tr>`;
+      }).join("")}</tbody>
+    </table></div>
+  `;
 }
 
 function renderOzet(satislar) {
