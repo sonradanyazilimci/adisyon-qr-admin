@@ -252,6 +252,21 @@ body.panel-suruklenirken { user-select: none; cursor: col-resize; }
 
 /* Hesabı Böl modalı */
 .hesap-bol-mod-secim { display: flex; gap: 8px; margin-bottom: 14px; }
+
+/* Eşit bölmede kişi sayısı: −/+ artırıcı (silip yeniden yazmaya gerek yok) */
+.hesap-bol-kisi-adet { display: flex; align-items: stretch; gap: 8px; }
+.hesap-bol-kisi-adet button {
+  flex: 0 0 48px; font-size: 22px; font-weight: 800; line-height: 1; padding: 0;
+  background: var(--renk-ikincil-bg); color: var(--renk-yazi);
+  border: 1.5px solid var(--renk-kenar); border-radius: 10px;
+}
+.hesap-bol-kisi-adet button:active { transform: scale(0.94); border-color: var(--renk-ana); }
+.hesap-bol-kisi-adet input {
+  flex: 1; min-width: 0; text-align: center; font-size: 18px; font-weight: 800;
+  -moz-appearance: textfield; appearance: textfield;
+}
+.hesap-bol-kisi-adet input::-webkit-outer-spin-button,
+.hesap-bol-kisi-adet input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .hesap-bol-mod-secim button { flex: 1; }
 .hesap-bol-mod-secim button.secili { background: var(--renk-ana); color: #fff; }
 .hesap-bol-kisi-cipler { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }

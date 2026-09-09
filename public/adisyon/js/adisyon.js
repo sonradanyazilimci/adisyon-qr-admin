@@ -1459,9 +1459,16 @@ function hesabiBolModaliGoster(toplamTutar, acikSiparisler, baslangicMod) {
       return `
         <h3>➗ Hesabı Böl</h3>
         ${modSecimHtml}
-        <div class="form-alan"><label>Kişi Sayısı</label><input id="hesap-bol-kisi-sayisi" type="number" min="2" max="20" value="${kisiSayisi}" /></div>
-        <div class="gs-satir gs-vurgu"><span>Kişi Başı</span><span>${paraFormat(kisiBasi)}</span></div>
-        <button type="button" id="hesap-bol-uygula-buton" class="btn-birincil btn-tam">Ödeme Satırlarını Oluştur (${kisiSayisi} Eşit Parça)</button>
+        <div class="form-alan">
+          <label>Kişi Sayısı</label>
+          <div class="hesap-bol-kisi-adet">
+            <button type="button" id="hesap-bol-kisi-eksi" aria-label="Azalt">−</button>
+            <input id="hesap-bol-kisi-sayisi" type="number" inputmode="numeric" min="2" max="20" value="${kisiSayisi}" />
+            <button type="button" id="hesap-bol-kisi-arti" aria-label="Arttır">+</button>
+          </div>
+        </div>
+        <div class="gs-satir gs-vurgu"><span>Kişi Başı</span><span id="hesap-bol-kisi-basi">${paraFormat(kisiBasi)}</span></div>
+        <button type="button" id="hesap-bol-uygula-buton" class="btn-birincil btn-tam">Ödeme Satırlarını Oluştur (<span id="hesap-bol-parca-sayi">${kisiSayisi}</span> Eşit Parça)</button>
       `;
     }
 
@@ -1503,12 +1510,29 @@ function hesabiBolModaliGoster(toplamTutar, acikSiparisler, baslangicMod) {
     }));
 
     if (mod === "esit") {
-      const kisiSayisiInput = icerikEl.querySelector("#hesap-bol-kisi-sayisi");
-      kisiSayisiInput.addEventListener("input", (e) => {
-        kisiSayisi = Math.max(2, Number(e.target.value) || 2);
-        icerikEl.innerHTML = `<button class="modal-kapat">&times;</button>${icerik()}`;
-        bagla();
+      // Kişi sayısı: −/+ düğmeleriyle veya doğrudan yazarak. Her değişimde tüm
+      // modalı yeniden çizmek yerine (odak kaybı) sadece türev alanları
+      // ("Kişi Başı" + buton etiketi) güncellenir.
+      const sayiInput = icerikEl.querySelector("#hesap-bol-kisi-sayisi");
+      const kisiBasiEl = icerikEl.querySelector("#hesap-bol-kisi-basi");
+      const parcaSayiEl = icerikEl.querySelector("#hesap-bol-parca-sayi");
+      const turevGuncelle = () => {
+        const kisiBasi = Math.round((toplamTutar / kisiSayisi) * 100) / 100;
+        kisiBasiEl.textContent = paraFormat(kisiBasi);
+        parcaSayiEl.textContent = kisiSayisi;
+      };
+      const kisiSayisiAyarla = (yeni) => {
+        kisiSayisi = Math.min(20, Math.max(2, Math.round(yeni) || 2));
+        sayiInput.value = kisiSayisi;
+        turevGuncelle();
+      };
+      icerikEl.querySelector("#hesap-bol-kisi-eksi").addEventListener("click", () => kisiSayisiAyarla(kisiSayisi - 1));
+      icerikEl.querySelector("#hesap-bol-kisi-arti").addEventListener("click", () => kisiSayisiAyarla(kisiSayisi + 1));
+      sayiInput.addEventListener("input", () => {
+        const n = Number(sayiInput.value);
+        if (n >= 2 && n <= 20) { kisiSayisi = n; turevGuncelle(); }
       });
+      sayiInput.addEventListener("change", () => kisiSayisiAyarla(Number(sayiInput.value)));
       icerikEl.querySelector("#hesap-bol-uygula-buton").addEventListener("click", () => {
         const kisiBasi = Math.round((toplamTutar / kisiSayisi) * 100) / 100;
         const satirlar = Array.from({ length: kisiSayisi }, () => ({ yontem: "nakit", tutar: kisiBasi }));
