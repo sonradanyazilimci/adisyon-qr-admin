@@ -4,10 +4,28 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { sayfaKorumaBaslat, cikisYap } from "../../shared/auth.js";
 import { pwaBaslat } from "../../shared/pwa.js";
-import { escapeHtml, tarihFormat, bildirimGoster, snapshotHataYakala, baglantiDurumuBaslat, sesliUyari, sekmeDikkat } from "../../shared/utils.js";
+import { escapeHtml, tarihFormat, bildirimGoster, snapshotHataYakala, baglantiDurumuBaslat, sesliUyari, sekmeDikkat, temaDegistir, ROL_ETIKET } from "../../shared/utils.js";
 
 pwaBaslat();
 baglantiDurumuBaslat();
+
+// Mutfak ekranı ortak açık/koyu tema motoruna bağlıdır ama parlak mutfak
+// ışığında uzaktan okunması için VARSAYILANI koyudur (kayıtlı tercih yoksa
+// sistem temasına bakmaz). ☀️/🌙 düğmesiyle değiştirilebilir.
+function mutfakTemaBaslat() {
+  const tema = localStorage.getItem("tema") || "karanlik";
+  document.documentElement.setAttribute("data-tema", tema);
+  const buton = document.getElementById("tema-degistir-buton");
+  if (!buton) return;
+  const ikonGuncelle = () => {
+    const k = document.documentElement.getAttribute("data-tema") === "karanlik";
+    buton.textContent = k ? "☀️" : "🌙";
+    buton.title = k ? "Aydınlık temaya geç" : "Karanlık temaya geç";
+  };
+  ikonGuncelle();
+  buton.addEventListener("click", () => { temaDegistir(); ikonGuncelle(); });
+}
+mutfakTemaBaslat();
 
 let siparislerCache = [];
 // Sesli uyarı için: en son bilinen "yeni" (mutfağa yeni düşmüş) sipariş
@@ -24,11 +42,12 @@ const KRITIK_DK = 25;
 const SERVIS_UYARI_DK = 5;
 
 async function baslat() {
-  const { subeId, ad } = await sayfaKorumaBaslat(["mutfak", "admin"]);
+  const { rol, subeId, ad } = await sayfaKorumaBaslat(["mutfak", "admin"]);
 
   document.getElementById("yukleniyor-ekrani").remove();
   document.getElementById("sayfa").hidden = false;
-  document.getElementById("mutfak-baslik").textContent = `🍳 ${ad}`;
+  document.getElementById("mutfak-baslik").textContent = ad;
+  document.getElementById("mutfak-gorev").textContent = ROL_ETIKET[rol] || rol;
   document.getElementById("cikis-buton").addEventListener("click", cikisYap);
 
   let subeAdi = "Tüm Şubeler";

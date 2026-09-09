@@ -35,6 +35,10 @@ export const MASA_DURUMLARI = {
   odeme_bekliyor: { etiket: "Ödeme Bekliyor", renk: "#c0392b" },
 };
 
+// Personel rolünün ekranda gösterilen etiketi — tüm terminal başlıklarında
+// "Ad · Görev" rozetinde ortak kullanılır.
+export const ROL_ETIKET = { admin: "Yönetici", garson: "Garson", kasa: "Kasa", mutfak: "Mutfak" };
+
 // Yaygın Türkiye yemek çeki markaları — hesap kapatırken "Yemek Çeki" ödeme
 // yöntemi seçildiğinde hangi markayla ödendiği de kaydedilsin diye.
 export const YEMEK_CEKI_MARKALARI = ["Sodexo", "Multinet", "Setcard", "Edenred (Ticket)", "Metropol Card", "Winwin"];

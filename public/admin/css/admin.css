@@ -36,7 +36,7 @@
    (adisyon ekranı da ön muhasebe özet kartlarında aynı sınıfları kullanıyor). */
 
 .urun-liste-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
-.urun-karti { background: var(--renk-kart); border-radius: 12px; box-shadow: var(--golge); overflow: hidden; display: flex; flex-direction: column; }
+.urun-karti { background: var(--renk-kart); border: 1px solid var(--renk-kart-kenar); border-radius: 12px; box-shadow: var(--golge); overflow: hidden; display: flex; flex-direction: column; }
 .urun-karti img { width: 100%; height: 120px; object-fit: cover; background: var(--renk-ikincil-bg); }
 .urun-karti .icerik { padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
 .urun-karti .ust-satir { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
@@ -47,7 +47,7 @@
 .urun-karti.pasif { opacity: .5; }
 
 .masa-kart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
-.masa-karti { background: var(--renk-kart); border-radius: 12px; box-shadow: var(--golge); padding: 14px; text-align: center; }
+.masa-karti { background: var(--renk-kart); border: 1px solid var(--renk-kart-kenar); border-radius: 12px; box-shadow: var(--golge); padding: 14px; text-align: center; }
 .masa-karti .durum-rozet { margin: 6px 0 10px; }
 .masa-karti .eylemler { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
 

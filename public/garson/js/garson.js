@@ -39,7 +39,7 @@ async function baslat() {
 
   document.getElementById("yukleniyor-ekrani").remove();
   document.getElementById("sayfa").hidden = false;
-  document.getElementById("garson-baslik").textContent = `${kullanici.ad.toUpperCase()} - GARSON`;
+  document.getElementById("garson-baslik").textContent = kullanici.ad;
   document.getElementById("cikis-buton").addEventListener("click", cikisYap);
 
   let subeAdi = "Tüm Şubeler";

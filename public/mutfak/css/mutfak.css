@@ -1,55 +1,69 @@
-body { background: #1c2530; color: #fff; }
+/* Mutfak ekranı — ortak açık/koyu tema motoruna bağlıdır (bkz.
+   shared/common.css değişkenleri). Varsayılan koyu; ☀️/🌙 ile değişir. */
 
-.mutfak-header {
-  background: #131a22; padding: 14px 22px; display: flex; justify-content: space-between; align-items: center;
-  position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 10px rgba(0,0,0,.3);
+.mutfak-govde {
+  display: flex; gap: 18px; padding: 20px; align-items: flex-start; flex-wrap: wrap;
 }
-.mutfak-header h1 { font-size: 20px; margin: 0; }
-.mutfak-header p { font-size: 12px; color: #9aa4b2; margin: 2px 0 0; }
-.mutfak-header #cikis-buton { background: #2a3644; color: #fff; }
-
-.mutfak-govde { display: flex; gap: 20px; padding: 20px; align-items: flex-start; flex-wrap: wrap; }
-.mutfak-sutun { flex: 1; min-width: 280px; }
-.mutfak-sutun h2 { font-size: 16px; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
+.mutfak-sutun {
+  flex: 1; min-width: 280px;
+  background: var(--renk-kart); border: 1px solid var(--renk-kart-kenar);
+  border-radius: 16px; box-shadow: var(--golge); padding: 14px 14px 16px;
+}
+.mutfak-sutun h2 {
+  font-size: 14px; margin: 0 0 14px; display: flex; align-items: center; gap: 8px;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--renk-yazi-soluk);
+  padding-bottom: 10px; border-bottom: 1px solid var(--renk-kenar);
+}
 .sayac {
-  background: rgba(255,255,255,.15); border-radius: 999px; padding: 2px 10px; font-size: 13px; font-weight: 800;
+  background: var(--renk-ana); color: #fff;
+  border-radius: 999px; padding: 2px 10px; font-size: 13px; font-weight: 800; margin-left: auto;
 }
 
-.siparis-kart-liste { display: flex; flex-direction: column; gap: 14px; }
+.siparis-kart-liste { display: flex; flex-direction: column; gap: 12px; }
 .siparis-karti {
-  background: #263140; border-radius: 14px; padding: 16px; box-shadow: 0 4px 14px rgba(0,0,0,.25);
-  border-left: 5px solid #e67e22;
+  background: var(--renk-kart); border: 1px solid var(--renk-kart-kenar);
+  border-left: 6px solid #e67e22;
+  border-radius: 14px; padding: 14px; box-shadow: var(--golge);
 }
 .siparis-karti.hazirlaniyor { border-left-color: #3498db; }
-.siparis-karti.hazir { border-left-color: #27ae60; opacity: .85; }
+.siparis-karti.hazir { border-left-color: #27ae60; opacity: .9; }
+
 .siparis-karti .ust {
-  display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;
+  display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px;
 }
-.siparis-karti .masa-adi { font-size: 19px; font-weight: 800; }
-.siparis-karti .saat { font-size: 12px; color: #9aa4b2; }
-.siparis-karti .garson { font-size: 12px; color: #9aa4b2; margin-bottom: 10px; }
+/* Masayı tek bakışta belli eden belirgin etiket */
+.siparis-karti .masa-adi {
+  font-size: 17px; font-weight: 800; line-height: 1;
+  background: var(--renk-ikincil-bg); border: 1px solid var(--renk-kenar);
+  border-radius: 9px; padding: 7px 12px; color: var(--renk-yazi);
+}
+.siparis-karti .saat { font-size: 12px; color: var(--renk-yazi-soluk); font-weight: 600; white-space: nowrap; }
+.siparis-karti .garson { font-size: 12px; color: var(--renk-yazi-soluk); margin-bottom: 10px; }
 .siparis-karti .kalemler { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .siparis-karti .kalem { display: flex; justify-content: space-between; font-size: 15px; gap: 10px; }
-.siparis-karti .kalem .adet { font-weight: 800; color: #f39c12; min-width: 30px; }
-.siparis-karti .kalem .not { font-size: 12px; color: #f1c40f; display: block; }
+.siparis-karti .kalem .adet { font-weight: 800; color: var(--renk-ana); min-width: 30px; }
+.siparis-karti .kalem .not { font-size: 12px; color: #b9770e; display: block; }
+[data-tema="karanlik"] .siparis-karti .kalem .not { color: #f1c40f; }
 .siparis-karti-eylemler { display: flex; gap: 8px; }
 .siparis-karti-eylemler button { flex: 1; padding: 12px; font-size: 14px; }
-.siparis-karti-eylemler .btn-ikincil { flex: 0 0 auto; background: #37424f; color: #cfd6dd; }
+.siparis-karti-eylemler .btn-ikincil { flex: 0 0 auto; }
 
 .siparis-karti.yeni-vurgu { animation: yaniyor 1.4s ease-in-out infinite; }
 @keyframes yaniyor {
-  0%, 100% { box-shadow: 0 4px 14px rgba(0,0,0,.25); }
-  50% { box-shadow: 0 4px 22px rgba(230,126,34,.65); }
+  0%, 100% { box-shadow: var(--golge); }
+  50% { box-shadow: 0 4px 22px rgba(230,126,34,.55); }
 }
 
 /* Hazırlama süresi sayacı + gecikme uyarısı */
-.sure-satir { display: flex; flex-wrap: wrap; gap: 8px; margin: -4px 0 10px; }
+.sure-satir { display: flex; flex-wrap: wrap; gap: 8px; margin: -2px 0 10px; }
 .sure-chip, .servis-bekleme-chip {
   font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px;
-  background: rgba(255,255,255,.12); color: #cfd6dd;
+  background: var(--renk-ikincil-bg); border: 1px solid var(--renk-kenar); color: var(--renk-yazi-soluk);
 }
-.sure-chip.sure-uyari { background: rgba(243,156,18,.22); color: #f6b93b; }
-.sure-chip.sure-kritik, .servis-bekleme-chip.sure-kritik { background: rgba(231,76,60,.25); color: #ff7063; }
+.sure-chip.sure-uyari { background: rgba(243,156,18,.18); border-color: rgba(243,156,18,.5); color: #b9770e; }
+.sure-chip.sure-kritik, .servis-bekleme-chip.sure-kritik { background: rgba(231,76,60,.18); border-color: rgba(231,76,60,.5); color: #c0392b; }
+[data-tema="karanlik"] .sure-chip.sure-uyari { color: #f6b93b; }
+[data-tema="karanlik"] .sure-chip.sure-kritik, [data-tema="karanlik"] .servis-bekleme-chip.sure-kritik { color: #ff7063; }
 
 .siparis-karti.gecikme-uyari { border-left-color: #f39c12; }
 .siparis-karti.gecikme-kritik {
@@ -57,8 +71,10 @@ body { background: #1c2530; color: #fff; }
   animation: gecikme-yanip-son 1.2s ease-in-out infinite;
 }
 @keyframes gecikme-yanip-son {
-  0%, 100% { box-shadow: 0 4px 14px rgba(0,0,0,.25); }
-  50% { box-shadow: 0 4px 22px rgba(231,76,60,.6); }
+  0%, 100% { box-shadow: var(--golge); }
+  50% { box-shadow: 0 4px 22px rgba(231,76,60,.55); }
 }
 
-.bos-durum { color: #7f8c9a; }
+@media (max-width: 560px) {
+  .mutfak-govde { padding: 14px; gap: 14px; }
+}

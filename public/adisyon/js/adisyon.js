@@ -130,7 +130,8 @@ async function baslat() {
 
   document.getElementById("yukleniyor-ekrani").remove();
   document.getElementById("sayfa").hidden = false;
-  document.getElementById("kasa-baslik").textContent = `🧾 ${kullanici.ad}`;
+  document.getElementById("kasa-baslik").textContent = kullanici.ad;
+  document.getElementById("kasa-gorev").textContent = ROL_ETIKET[kullanici.rol] || kullanici.rol;
   // "Çıkış": herkes için normal oturum kapatma. (Vardiya kilidi özelliği
   // devre dışı — bkz. KILIT_OZELLIGI_AKTIF.) Kasa personelinin puantaj
   // çıkışı görünmez şekilde kaydedilir, sonra login'e dönülür.
@@ -526,7 +527,8 @@ async function kilitFormGonderildi(e) {
     // token henüz güncellenmeden gidip "izin yok" hatası verebiliyordu.
     await cred.user.getIdToken(true);
     kullanici = { ad: kilitSeciliPersonel.ad, subeId: kilitSeciliPersonel.subeId || kullanici.subeId, rol: kilitSeciliPersonel.rol };
-    document.getElementById("kasa-baslik").textContent = `🧾 ${kullanici.ad}`;
+    document.getElementById("kasa-baslik").textContent = kullanici.ad;
+    document.getElementById("kasa-gorev").textContent = ROL_ETIKET[kullanici.rol] || kullanici.rol;
     await puantajOtomatikGiris(auth.currentUser.uid);
     kilitGizle();
     bildirimGoster(`Hoş geldiniz, ${kullanici.ad}!`, "basari");
@@ -1015,6 +1017,16 @@ function nakitSatirlariToplami() {
   ) / 100;
 }
 
+// "Hesabı Kapat" ancak (1) girilen ödeme tutarı hesap toplamına eşitse VE
+// (2) hesap birden fazla parçaya bölündüyse HER parça "tahsil edildi" olarak
+// işaretlendiyse aktifleşir — bölünmüş ödemelerde bir parçanın atlanması
+// engellenir.
+function hesapKapatilabilirMi(toplamTutar) {
+  const kalanTamam = Math.abs(toplamTutar - odemeSatirlariToplami()) <= 0.01;
+  const tahsilTamam = odemeSatirlari.length <= 1 || odemeSatirlari.every((o) => o.tahsil);
+  return kalanTamam && tahsilTamam;
+}
+
 // Hesap kapatma ekranındaki "bölüm bölüm ödeme" satırları: her satır bir
 // yöntem+tutar (yemek çekiyse marka da). Toplam girilen tutar, hesabın genel
 // toplamına eşitlenene kadar "Hesabı Kapat" pasif kalır.
@@ -1023,6 +1035,9 @@ function odemeSatirlariHtml(toplamTutar) {
   const kalan = Math.round((toplamTutar - girilen) * 100) / 100;
   const nakitToplam = nakitSatirlariToplami();
   const paraUstu = Math.round((nakitAlinan - nakitToplam) * 100) / 100;
+  const cokParca = odemeSatirlari.length > 1;
+  const tahsilEdilen = odemeSatirlari.filter((o) => o.tahsil).length;
+  const hepsiTahsil = tahsilEdilen === odemeSatirlari.length;
   return `
     <div class="odeme-satirlari-baslik">
       <span>Ödeme (bölüm bölüm ödenebilir)</span>
@@ -1033,9 +1048,11 @@ function odemeSatirlariHtml(toplamTutar) {
       <button type="button" class="hizli-odeme-buton" data-yontem="nakit">💵 Tümü Nakit</button>
       <button type="button" class="hizli-odeme-buton" data-yontem="kart">💳 Tümü Kart</button>
     </div>
+    ${cokParca ? `<p class="odeme-tahsil-ipucu">Her parçayı tahsil ettikçe soldaki kutuyu işaretleyin — karışmasın.</p>` : ""}
     <div id="odeme-satirlari-liste">
       ${odemeSatirlari.map((o, i) => `
-        <div class="odeme-satiri">
+        <div class="odeme-satiri ${o.tahsil ? "tahsil-edildi" : ""}">
+          ${cokParca ? `<button type="button" class="odeme-tahsil-tik ${o.tahsil ? "isaretli" : ""}" data-tahsil="${i}" title="${o.tahsil ? "Tahsil edildi — geri al" : "Tahsil edildi olarak işaretle"}" aria-pressed="${o.tahsil ? "true" : "false"}">${o.tahsil ? "✓" : ""}</button>` : ""}
           <select class="odeme-yontem-select" data-index="${i}">
             <option value="nakit" ${o.yontem === "nakit" ? "selected" : ""}>💵 Nakit</option>
             <option value="kart" ${o.yontem === "kart" ? "selected" : ""}>💳 Kart</option>
@@ -1050,6 +1067,10 @@ function odemeSatirlariHtml(toplamTutar) {
         </div>`).join("")}
     </div>
     <button type="button" id="odeme-satiri-ekle-buton" class="btn-ikincil btn-kucuk" style="margin:6px 0 10px;">+ Ödeme Satırı Ekle</button>
+    ${cokParca ? `
+    <div class="odeme-kalan-satir odeme-tahsil-ozet ${hepsiTahsil ? "tamam" : "eksik"}">
+      <span>Tahsil edilen parça</span><span id="odeme-tahsil-sayac">${tahsilEdilen} / ${odemeSatirlari.length}</span>
+    </div>` : ""}
     <div class="odeme-kalan-satir ${Math.abs(kalan) <= 0.01 ? "tamam" : "eksik"}">
       <span>Girilen Toplam</span><span id="odeme-girilen-tutar">${paraFormat(girilen)}</span>
     </div>
@@ -1087,7 +1108,7 @@ function odemeOzetGuncelle(toplamTutar) {
     girilenEl.closest(".odeme-kalan-satir")?.classList.toggle("eksik", !tamamMi);
   }
   const kapatButon = document.getElementById("hesap-kapat-buton");
-  if (kapatButon) kapatButon.disabled = Math.abs(kalan) > 0.01;
+  if (kapatButon) kapatButon.disabled = !hesapKapatilabilirMi(toplamTutar);
   paraUstuGuncelle();
 }
 
@@ -1142,7 +1163,7 @@ function renderMasalar() {
       ? ` style="left:${m.planX}%;top:${m.planY}%;"` : "";
     return `
     <div class="masa-kart-adisyon ${m.durum || "bos"} ${m.id === seciliMasaId ? "secili" : ""} ${m.garsonCagirildi ? "cagirdi" : ""} ${m.hesapIstendi ? "hesap-istendi" : ""} ${m.odemeBildirildi ? "odeme-bildirildi" : ""} ${yeniSiparisVar ? "yeni-siparis" : ""} ${onayBekliyorVar ? "onay-bekliyor-var" : ""} ${eylemModunda ? "eylem-modu-aktif" : ""} ${buMasaEylemKaynagi ? "eylem-kaynagi" : ""} ${garsonAtamaModu ? "atama-modu-aktif" : ""} ${buMasaGarsonAyni ? "atama-ayni-garson" : ""}" data-masa="${m.id}"${planStil}>
-      ${escapeHtml(m.ad)}
+      <span class="masa-ad">${escapeHtml(m.ad)}</span>
       <div class="durum" style="color:${(MASA_DURUMLARI[m.durum] || MASA_DURUMLARI.bos).renk}">${(MASA_DURUMLARI[m.durum] || MASA_DURUMLARI.bos).etiket}</div>
       <div class="sorumlu-etiket">${m.sorumluGarsonAdi ? `👤 ${escapeHtml(m.sorumluGarsonAdi)}` : "Sorumlu yok"}</div>
       ${m.garsonCagirildi ? `<div class="masa-cagri-rozet">🔔 Garson çağrıldı</div>` : ""}
@@ -1284,7 +1305,7 @@ function renderDetay() {
           <button id="fis-yazdir-buton" class="btn-ikincil btn-tam">🖨️ Fiş Yazdır</button>
           <button id="dijital-fis-buton" class="btn-ikincil btn-tam">📱 Dijital Fiş</button>
         </div>
-        <button id="hesap-kapat-buton" class="btn-yesil btn-tam" style="margin-top:8px;" ${Math.abs(toplamTutar - odemeSatirlariToplami()) > 0.01 ? "disabled" : ""}>Hesabı Kapat</button>
+        <button id="hesap-kapat-buton" class="btn-yesil btn-tam" style="margin-top:8px;" ${hesapKapatilabilirMi(toplamTutar) ? "" : "disabled"}>Hesabı Kapat</button>
         <button id="hesap-ikram-buton" class="btn-ikincil btn-tam" style="margin-top:8px;">🎁 İkram Et (Hesabı Sıfırla)</button>
       `}
 
@@ -1354,6 +1375,11 @@ function renderDetay() {
   }));
   panel.querySelectorAll(".odeme-satiri-sil").forEach((b) => b.addEventListener("click", () => {
     odemeSatirlari.splice(Number(b.dataset.index), 1);
+    renderDetay();
+  }));
+  panel.querySelectorAll(".odeme-tahsil-tik").forEach((b) => b.addEventListener("click", () => {
+    const i = Number(b.dataset.tahsil);
+    odemeSatirlari[i].tahsil = !odemeSatirlari[i].tahsil;
     renderDetay();
   }));
   panel.querySelector("#odeme-satiri-ekle-buton")?.addEventListener("click", () => {
@@ -1941,6 +1967,11 @@ async function hesabiKapat(masa, siparisler, toplam) {
   const girilen = odemeSatirlariToplami();
   if (Math.abs(toplam - girilen) > 0.01) {
     bildirimGoster(`Ödeme satırlarının toplamı (${paraFormat(girilen)}) hesap tutarına (${paraFormat(toplam)}) eşit değil.`, "uyari");
+    return;
+  }
+  if (odemeSatirlari.length > 1 && !odemeSatirlari.every((o) => o.tahsil)) {
+    const kalanParca = odemeSatirlari.filter((o) => !o.tahsil).length;
+    bildirimGoster(`${kalanParca} ödeme parçası henüz "tahsil edildi" olarak işaretlenmedi.`, "uyari");
     return;
   }
   if (odemeSatirlari.some((o) => o.yontem === "yemek_ceki" && !o.marka)) {

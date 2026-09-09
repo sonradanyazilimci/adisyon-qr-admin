@@ -1,12 +1,8 @@
 body { background: var(--renk-arkaplan); }
 .sayfa-duzen { min-height: 100vh; }
 
-.adisyon-header {
-  background: var(--renk-kart); padding: 14px 22px; display: flex; justify-content: space-between; align-items: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,.05);
-}
-.adisyon-header h1 { font-size: 19px; margin: 0; }
-.adisyon-header p { font-size: 12px; color: var(--renk-yazi-soluk); margin: 2px 0 0; }
+/* Üst bar düzeni public/shared/common.css'teki .mod-header / .mod-eylemler
+   ile ortaktır (mutfak · adisyon · garson aynı görünür). */
 .adisyon-ust-eylemler { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 
 /* Ana sekme çubuğu: Masalar / Puantaj / Kasa Hareketleri — her biri artık
@@ -126,20 +122,29 @@ body.panel-suruklenirken { user-select: none; cursor: col-resize; }
 .masa-plan-konumsuz-etiket { font-size: 12px; font-weight: 700; color: var(--renk-yazi-soluk); width: 100%; }
 .masa-plan-konumsuz .masa-kart-adisyon { width: 120px; }
 .masa-kart-adisyon {
-  background: var(--renk-kart); border-radius: 12px; padding: 13px 8px 12px; min-height: 74px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  background: var(--renk-kart); border-radius: 12px; padding: 12px 8px 11px; min-height: 82px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   text-align: center; box-shadow: var(--golge); font-size: 14.5px;
-  font-weight: 800; cursor: pointer; border: 2px solid transparent; position: relative;
-  transition: transform .1s ease, border-color .15s ease;
+  font-weight: 800; cursor: pointer; position: relative;
+  border: 1px solid var(--renk-kart-kenar); border-top: 4px solid var(--renk-gri);
+  transition: transform .1s ease, border-color .15s ease, box-shadow .15s ease;
   -webkit-tap-highlight-color: transparent; user-select: none;
 }
+.masa-kart-adisyon:hover { box-shadow: 0 6px 18px rgba(15,23,42,.14); }
 .masa-kart-adisyon:active { transform: scale(0.96); }
-.masa-kart-adisyon.dolu { border-color: #e67e22; }
-.masa-kart-adisyon.odeme_bekliyor { border-color: #c0392b; background: #fdecea; }
+.masa-kart-adisyon.bos { border-top-color: #27ae60; }
+.masa-kart-adisyon.dolu { border-top-color: #e67e22; border-color: rgba(230,126,34,.45); }
+.masa-kart-adisyon.odeme_bekliyor { border-top-color: #c0392b; border-color: rgba(192,57,43,.5); background: #fdecea; }
 [data-tema="karanlik"] .masa-kart-adisyon.odeme_bekliyor { background: rgba(192,57,43,.2); }
-.masa-kart-adisyon.secili { outline: 3px solid var(--renk-ana); }
-.masa-kart-adisyon .durum { font-size: 11px; margin-top: 6px; font-weight: 700; }
-.masa-kart-adisyon .tutar { font-size: 12px; color: var(--renk-ana); margin-top: 2px; }
+.masa-kart-adisyon.secili { outline: 3px solid var(--renk-ana); outline-offset: 1px; }
+.masa-kart-adisyon .masa-ad {
+  font-size: 15.5px; font-weight: 800; letter-spacing: .01em; line-height: 1.15;
+}
+.masa-kart-adisyon .durum {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+  margin-top: 4px; padding: 2px 8px; border-radius: 999px; background: var(--renk-ikincil-bg);
+}
+.masa-kart-adisyon .tutar { font-size: 13px; color: var(--renk-ana); font-weight: 800; margin-top: 3px; }
 .masa-kart-adisyon.cagirdi::after { content: "🔔"; position: absolute; top: -8px; right: -6px; font-size: 18px; }
 .masa-kart-adisyon.yeni-siparis::before { content: "🆕"; position: absolute; top: -8px; left: -6px; font-size: 16px; }
 .masa-kart-adisyon.onay-bekliyor-var { border-color: #9b59b6; }
@@ -205,6 +210,23 @@ body.panel-suruklenirken { user-select: none; cursor: col-resize; }
 .odeme-kalan-satir.eksik { color: #e67e22; }
 .odeme-kalan-satir.tamam { color: var(--renk-yesil); }
 
+/* Bölünmüş ödemede "her parçayı tahsil ettikçe işaretle" akışı */
+.odeme-tahsil-ipucu { font-size: 11.5px; color: var(--renk-yazi-soluk); margin: 0 0 8px; }
+.odeme-tahsil-tik {
+  flex-shrink: 0; width: 30px; height: 30px; padding: 0; border-radius: 8px;
+  background: var(--renk-ikincil-bg); border: 1.5px solid var(--renk-kenar);
+  color: var(--renk-yesil); font-size: 15px; font-weight: 900; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.odeme-tahsil-tik.isaretli { background: var(--renk-yesil); border-color: var(--renk-yesil); color: #fff; }
+.odeme-satiri.tahsil-edildi {
+  border-left: 3px solid var(--renk-yesil); padding-left: 6px; border-radius: 4px;
+}
+.odeme-satiri.tahsil-edildi .odeme-tutar-input,
+.odeme-satiri.tahsil-edildi .odeme-yontem-select,
+.odeme-satiri.tahsil-edildi .odeme-marka-select { opacity: .55; }
+.odeme-kalan-satir.odeme-tahsil-ozet { border-top: 1px dashed var(--renk-kenar); margin-top: 4px; padding-top: 8px; }
+
 /* Tek dokunuş ödeme kısayolları */
 .hizli-odeme-satir { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
 .hizli-odeme-etiket { font-size: 12px; font-weight: 700; color: var(--renk-yazi-soluk); }
@@ -253,7 +275,13 @@ body.panel-suruklenirken { user-select: none; cursor: col-resize; }
 .pos-urun-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
 .pos-urun-kart {
   position: relative; background: var(--renk-ikincil-bg); border-radius: 10px; padding: 12px 10px 10px;
-  text-align: center; cursor: pointer; border: 1.5px solid transparent;
+  text-align: center; cursor: pointer; border: 1.5px solid var(--renk-kenar);
+  -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+/* Karta dokunmak ürünü ekler; isim/fiyat metnine dokununca metin SEÇİLMESİN
+   (hızlı art arda dokunuşta mavi seçim kalıntısı bırakmasın). */
+.pos-urun-kart .ad, .pos-urun-kart .fiyat, .pos-urun-kart .pos-tukendi-etiket {
+  -webkit-user-select: none; user-select: none; pointer-events: none;
 }
 .pos-urun-kart:active { transform: scale(0.97); border-color: var(--renk-ana); }
 .pos-urun-kart .ad { font-size: 12.5px; font-weight: 700; margin-bottom: 4px; line-height: 1.25; }
@@ -296,7 +324,6 @@ body.panel-suruklenirken { user-select: none; cursor: col-resize; }
 }
 
 @media (max-width: 560px) {
-  .adisyon-header { flex-direction: column; align-items: stretch; gap: 10px; }
   .adisyon-ust-eylemler { justify-content: stretch; }
   .adisyon-ust-eylemler button:not(.tema-degistir-buton) { flex: 1; }
   .adisyon-sekme-cubugu { padding: 8px 10px 0; }
@@ -310,6 +337,8 @@ body.panel-suruklenirken { user-select: none; cursor: col-resize; }
   .puantaj-manuel-satir { flex-direction: column; gap: 0; }
   .odeme-satiri { flex-direction: column; align-items: stretch; }
   .odeme-satiri .odeme-satiri-sil { width: 100%; }
+  .odeme-satiri .odeme-tahsil-tik { width: 100%; height: 36px; }
+  .odeme-satiri.tahsil-edildi { border-left-width: 4px; }
   .detay-eylemler { flex-direction: column; }
 }
 

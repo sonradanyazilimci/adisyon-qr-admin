@@ -12,17 +12,29 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <link rel="stylesheet" href="../shared/common.css" />
 <link rel="stylesheet" href="./css/mutfak.css" />
+<!-- Tema sınıfını ilk boyamadan ÖNCE ata (beyaz parlaması olmasın). Mutfak
+     varsayılanı koyu; kayıtlı tercih varsa o kullanılır. -->
+<script>document.documentElement.setAttribute("data-tema", localStorage.getItem("tema") || "karanlik");</script>
 </head>
 <body>
   <div id="yukleniyor-ekrani" class="yukleniyor" style="min-height:100vh;">Yükleniyor...</div>
 
   <div id="sayfa" hidden>
-    <header class="mutfak-header">
-      <div>
-        <h1 id="mutfak-baslik">🍳 Mutfak Ekranı</h1>
-        <p id="mutfak-alt-baslik">Şube</p>
+    <header class="mod-header">
+      <div class="mod-kimlik">
+        <span class="mod-ikon">🍳</span>
+        <div class="mod-kimlik-metin">
+          <div class="mod-kimlik-ad">
+            <strong id="mutfak-baslik">Mutfak</strong>
+            <span class="gorev-rozet" id="mutfak-gorev">Mutfak</span>
+          </div>
+          <p class="mod-sube" id="mutfak-alt-baslik">Şube</p>
+        </div>
       </div>
-      <button id="cikis-buton" class="btn-ikincil btn-kucuk">Çıkış</button>
+      <div class="mod-eylemler">
+        <button id="tema-degistir-buton" class="tema-degistir-buton" title="Tema değiştir">☀️</button>
+        <button id="cikis-buton" class="btn-ikincil btn-kucuk">Çıkış</button>
+      </div>
     </header>
 
     <main class="mutfak-govde">

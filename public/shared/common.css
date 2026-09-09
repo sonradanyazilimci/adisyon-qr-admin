@@ -6,16 +6,17 @@
   --renk-kirmizi: #c0392b;
   --renk-mavi: #2980b9;
   --renk-gri: #7f8c8d;
-  --renk-arkaplan: #f5f6f8;
+  --renk-arkaplan: #e7eaf0;
   --renk-kart: #ffffff;
   --renk-yazi: #1f2933;
-  --renk-yazi-soluk: #64748b;
-  --renk-kenar: #d7dce2;
+  --renk-yazi-soluk: #5b6675;
+  --renk-kenar: #d3d9e2;
+  --renk-kart-kenar: #e1e5ec;
   --renk-ikincil-bg: #eef1f5;
   --renk-input-bg: #ffffff;
-  --renk-scrollbar: #ccd3db;
+  --renk-scrollbar: #c3cbd6;
   --kenar-yaricap: 12px;
-  --golge: 0 2px 10px rgba(15, 23, 42, 0.08);
+  --golge: 0 1px 2px rgba(15, 23, 42, 0.06), 0 6px 20px rgba(15, 23, 42, 0.09);
   --font-baslik: "Playfair Display", Georgia, "Times New Roman", serif;
   font-size: 16px;
   color-scheme: light;
@@ -29,6 +30,7 @@
   --renk-yazi: #f0ece4;
   --renk-yazi-soluk: #9a9488;
   --renk-kenar: #2b2d33;
+  --renk-kart-kenar: #2b2d33;
   --renk-ikincil-bg: #1f2126;
   --renk-input-bg: #1a1b20;
   --renk-scrollbar: #3a3d44;
@@ -104,15 +106,49 @@ label { font-size: 13px; font-weight: 600; color: var(--renk-yazi-soluk); displa
 
 .kart {
   background: var(--renk-kart);
+  border: 1px solid var(--renk-kart-kenar);
   border-radius: var(--kenar-yaricap);
   box-shadow: var(--golge);
   padding: 18px;
 }
 
+/* ───────────────────────── Ortak terminal başlığı ─────────────────────────
+   mutfak / adisyon / garson ekranlarının hepsi aynı üst bar düzenini
+   kullanır: solda [ikon] + "Ad · Görev" + şube, sağda modüle özel düğmeler +
+   tema değiştir + çıkış. Böylece hangi ekranda olursa olsun "kim giriş
+   yapmış, görevi ne, hangi şube" tek bakışta görünür. */
+.mod-header {
+  background: var(--renk-kart); color: var(--renk-yazi);
+  padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--renk-kenar); box-shadow: var(--golge);
+  position: sticky; top: 0; z-index: 50;
+}
+.mod-kimlik { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.mod-ikon {
+  font-size: 20px; width: 40px; height: 40px; flex-shrink: 0; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--renk-ikincil-bg); border: 1px solid var(--renk-kenar); border-radius: 11px;
+}
+.mod-kimlik-metin { min-width: 0; }
+.mod-kimlik-ad { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mod-kimlik-ad strong { font-size: 16px; font-weight: 800; letter-spacing: .01em; }
+.mod-sube { margin: 2px 0 0; font-size: 12px; color: var(--renk-yazi-soluk); font-weight: 600; }
+.gorev-rozet {
+  font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
+  padding: 3px 9px; border-radius: 999px; background: var(--renk-ana); color: #fff; white-space: nowrap;
+}
+.mod-eylemler { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 560px) {
+  .mod-header { padding: 10px 12px; }
+  .mod-eylemler { width: 100%; }
+  .mod-eylemler button:not(.tema-degistir-buton) { flex: 1; }
+}
+
 /* Küçük özet/istatistik kartları — admin panel VE adisyon (ön muhasebe özeti)
    ortak kullanır. */
 .panel-kart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 22px; }
-.panel-kart { background: var(--renk-kart); border-radius: 12px; padding: 18px; box-shadow: var(--golge); }
+.panel-kart { background: var(--renk-kart); border: 1px solid var(--renk-kart-kenar); border-radius: 12px; padding: 18px; box-shadow: var(--golge); }
 .panel-kart .deger { font-size: 26px; font-weight: 800; margin: 4px 0; }
 .panel-kart .etiket { font-size: 13px; color: var(--renk-yazi-soluk); font-weight: 600; }
 
@@ -134,7 +170,8 @@ label { font-size: 13px; font-weight: 600; color: var(--renk-yazi-soluk); displa
    genişlik olur, böylece metin/buton üst üste binmez. */
 .liste-alani { display: flex; flex-direction: column; gap: 10px; }
 .liste-satir {
-  background: var(--renk-kart); border-radius: 10px; padding: 12px 16px; display: flex; align-items: center;
+  background: var(--renk-kart); border: 1px solid var(--renk-kart-kenar); border-radius: 10px;
+  padding: 12px 16px; display: flex; align-items: center;
   gap: 14px; box-shadow: var(--golge); flex-wrap: wrap;
 }
 .liste-satir .ana-bilgi { flex: 1; min-width: 160px; }
@@ -186,7 +223,7 @@ label { font-size: 13px; font-weight: 600; color: var(--renk-yazi-soluk); displa
   z-index: 1000; padding: 16px;
 }
 .modal-kutu {
-  background: var(--renk-kart); border-radius: 14px; padding: 22px;
+  background: var(--renk-kart); border: 1px solid var(--renk-kart-kenar); border-radius: 14px; padding: 22px;
   max-width: 480px; width: 100%; max-height: 88vh; overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0,0,0,.25);
 }
