@@ -137,9 +137,9 @@ body.panel-suruklenirken { user-select: none; cursor: col-resize; }
    turuncu taban tonuyla da işaretlenir; "boş" bilinçli olarak nötr bırakıldı
    (dikkat gerektirmiyor, göz orada durmamalı). */
 .masa-kart-adisyon.dolu { border-top-color: #e67e22; border-color: rgba(230,126,34,.45); background: #fef6ee; }
-[data-tema="karanlik"] .masa-kart-adisyon.dolu { background: rgba(230,126,34,.14); }
+[data-tema="karanlik"] .masa-kart-adisyon.dolu { background: rgba(230,126,34,.22); }
 .masa-kart-adisyon.odeme_bekliyor { border-top-color: #c0392b; border-color: rgba(192,57,43,.5); background: #fdecea; }
-[data-tema="karanlik"] .masa-kart-adisyon.odeme_bekliyor { background: rgba(192,57,43,.2); }
+[data-tema="karanlik"] .masa-kart-adisyon.odeme_bekliyor { background: rgba(192,57,43,.26); }
 .masa-kart-adisyon.secili { outline: 3px solid var(--renk-ana); outline-offset: 1px; }
 .masa-kart-adisyon .masa-ad {
   font-size: 15.5px; font-weight: 800; letter-spacing: .01em; line-height: 1.15;
@@ -194,9 +194,9 @@ body.panel-suruklenirken { user-select: none; cursor: col-resize; }
    taban tonu + üst şerit olarak yansır — "hangi masadayım" tek bakışta belli
    olsun, sağ panel düz beyaz kalmasın. */
 .detay-panel.durum-dolu { border-top-color: #e67e22; background: #fef6ee; }
-[data-tema="karanlik"] .detay-panel.durum-dolu { background: rgba(230,126,34,.10); }
+[data-tema="karanlik"] .detay-panel.durum-dolu { background: rgba(230,126,34,.18); }
 .detay-panel.durum-odeme_bekliyor { border-top-color: #c0392b; background: #fdecea; }
-[data-tema="karanlik"] .detay-panel.durum-odeme_bekliyor { background: rgba(192,57,43,.13); }
+[data-tema="karanlik"] .detay-panel.durum-odeme_bekliyor { background: rgba(192,57,43,.20); }
 .detay-panel h2 { margin: 0; }
 .detay-panel-baslik { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .masa-eylem-satir { display: flex; gap: 6px; flex-wrap: wrap; }

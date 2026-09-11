@@ -30,11 +30,11 @@
   border-radius: 14px; padding: 14px; box-shadow: var(--golge);
   transition: background-color .15s ease, border-left-color .15s ease;
 }
-[data-tema="karanlik"] .siparis-karti { background: rgba(230,126,34,.08); }
+[data-tema="karanlik"] .siparis-karti { background: rgba(230,126,34,.18); }
 .siparis-karti.hazirlaniyor { border-left-color: #3498db; background: #eef6fc; }
-[data-tema="karanlik"] .siparis-karti.hazirlaniyor { background: rgba(52,152,219,.10); }
+[data-tema="karanlik"] .siparis-karti.hazirlaniyor { background: rgba(52,152,219,.20); }
 .siparis-karti.hazir { border-left-color: #27ae60; opacity: .9; background: #eefbf3; }
-[data-tema="karanlik"] .siparis-karti.hazir { background: rgba(39,174,96,.08); }
+[data-tema="karanlik"] .siparis-karti.hazir { background: rgba(39,174,96,.18); }
 
 .siparis-karti .ust {
   display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px;
@@ -74,12 +74,12 @@
 [data-tema="karanlik"] .sure-chip.sure-kritik, [data-tema="karanlik"] .servis-bekleme-chip.sure-kritik { color: #ff7063; }
 
 .siparis-karti.gecikme-uyari { border-left-color: #f39c12; background: #fdf3e3; }
-[data-tema="karanlik"] .siparis-karti.gecikme-uyari { background: rgba(243,156,18,.12); }
+[data-tema="karanlik"] .siparis-karti.gecikme-uyari { background: rgba(243,156,18,.22); }
 .siparis-karti.gecikme-kritik {
   border-left-color: #e74c3c; background: #fdecea;
   animation: gecikme-yanip-son 1.2s ease-in-out infinite;
 }
-[data-tema="karanlik"] .siparis-karti.gecikme-kritik { background: rgba(231,76,60,.14); }
+[data-tema="karanlik"] .siparis-karti.gecikme-kritik { background: rgba(231,76,60,.24); }
 @keyframes gecikme-yanip-son {
   0%, 100% { box-shadow: var(--golge); }
   50% { box-shadow: 0 4px 22px rgba(231,76,60,.55); }
