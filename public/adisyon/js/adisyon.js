@@ -1247,7 +1247,14 @@ async function masaKartiTiklandi(tiklananId) {
 function renderDetay() {
   const panel = document.getElementById("detay-panel");
   const masa = masalarCache.find((m) => m.id === seciliMasaId);
-  if (!masa) { panel.innerHTML = `<div class="bos-durum">Detaylarını görmek için bir masa seçin.</div>`; return; }
+  if (!masa) {
+    panel.className = "detay-panel";
+    panel.innerHTML = `<div class="bos-durum">Detaylarını görmek için bir masa seçin.</div>`;
+    return;
+  }
+  // Masa kartındaki durum rengini (bkz. renderMasalar) panele de taşı — sağ
+  // panel her zaman düz beyaz kalmasın, "hangi masadayım" tek bakışta belli olsun.
+  panel.className = `detay-panel durum-${masa.durum || "bos"}`;
 
   const acikSiparisler = masaninAcikSiparisleri(masa.id).sort((a, b) => (a.olusturmaZamani?.toMillis?.() || 0) - (b.olusturmaZamani?.toMillis?.() || 0));
   const toplamTutar = acikSiparisler.reduce((acc, s) => acc + siparisTutari(s), 0);

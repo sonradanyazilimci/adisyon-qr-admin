@@ -13,8 +13,13 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
 }
 .masa-kart-mini .durum { font-size: 11px; font-weight: 700; margin-top: 4px; }
 .masa-kart-mini.secili { outline: 3px solid var(--renk-ana); outline-offset: 1px; }
-.masa-kart-mini.dolu { border-color: #e67e22; }
-.masa-kart-mini.odeme_bekliyor { border-color: #c0392b; }
+/* Adisyon terminalindekiyle aynı mantık: "dolu"/"ödeme bekliyor" masalar
+   sadece kenarlıkla değil hafif bir taban tonuyla da işaretlenir — "boş"
+   bilinçli olarak nötr kalır, dikkat gerektirmiyor. */
+.masa-kart-mini.dolu { border-color: #e67e22; background: #fef6ee; }
+[data-tema="karanlik"] .masa-kart-mini.dolu { background: rgba(230,126,34,.14); }
+.masa-kart-mini.odeme_bekliyor { border-color: #c0392b; background: #fdecea; }
+[data-tema="karanlik"] .masa-kart-mini.odeme_bekliyor { background: rgba(192,57,43,.2); }
 .masa-kart-mini.cagirdi::after {
   content: "🔔"; position: absolute; top: -8px; right: -6px; font-size: 18px;
 }
@@ -48,7 +53,17 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
 .benim-masam-etiketi { font-size: 13px; margin-right: 3px; }
 @keyframes hazirYanip { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 
-.siparis-alani { padding: 8px 18px 20px; }
+.siparis-alani {
+  padding: 8px 18px 20px; border-top: 4px solid transparent;
+  transition: background-color .15s ease, border-top-color .15s ease;
+}
+/* Seçili masanın durumu (adisyon'daki detay-paneli gibi) burada da bir
+   taban tonu + üst şerit olarak yansır — sürekli seçilen masa değişse de
+   ekran her zaman aynı düz zeminde kalmasın. */
+.siparis-alani.durum-dolu { border-top-color: #e67e22; background: #fef6ee; }
+[data-tema="karanlik"] .siparis-alani.durum-dolu { background: rgba(230,126,34,.10); }
+.siparis-alani.durum-odeme_bekliyor { border-top-color: #c0392b; background: #fdecea; }
+[data-tema="karanlik"] .siparis-alani.durum-odeme_bekliyor { background: rgba(192,57,43,.13); }
 .siparis-alani-baslik { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
 .siparis-alani-baslik h2 { font-size: 17px; margin: 0; }
 

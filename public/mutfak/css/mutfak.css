@@ -20,13 +20,21 @@
 }
 
 .siparis-kart-liste { display: flex; flex-direction: column; gap: 12px; }
+/* Her bilet her zaman bir eylem bekliyor (adisyon/garsondaki "boş" gibi
+   nötr bırakılacak bir durum yok) — bu yüzden üçü de (yeni/hazırlanıyor/
+   hazır) kenarlıkla birlikte hafif bir taban tonu alır; mutfakta hızlı
+   tarama en önemli şey. */
 .siparis-karti {
-  background: var(--renk-kart); border: 1px solid var(--renk-kart-kenar);
+  background: #fef6ee; border: 1px solid var(--renk-kart-kenar);
   border-left: 6px solid #e67e22;
   border-radius: 14px; padding: 14px; box-shadow: var(--golge);
+  transition: background-color .15s ease, border-left-color .15s ease;
 }
-.siparis-karti.hazirlaniyor { border-left-color: #3498db; }
-.siparis-karti.hazir { border-left-color: #27ae60; opacity: .9; }
+[data-tema="karanlik"] .siparis-karti { background: rgba(230,126,34,.08); }
+.siparis-karti.hazirlaniyor { border-left-color: #3498db; background: #eef6fc; }
+[data-tema="karanlik"] .siparis-karti.hazirlaniyor { background: rgba(52,152,219,.10); }
+.siparis-karti.hazir { border-left-color: #27ae60; opacity: .9; background: #eefbf3; }
+[data-tema="karanlik"] .siparis-karti.hazir { background: rgba(39,174,96,.08); }
 
 .siparis-karti .ust {
   display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px;
@@ -65,11 +73,13 @@
 [data-tema="karanlik"] .sure-chip.sure-uyari { color: #f6b93b; }
 [data-tema="karanlik"] .sure-chip.sure-kritik, [data-tema="karanlik"] .servis-bekleme-chip.sure-kritik { color: #ff7063; }
 
-.siparis-karti.gecikme-uyari { border-left-color: #f39c12; }
+.siparis-karti.gecikme-uyari { border-left-color: #f39c12; background: #fdf3e3; }
+[data-tema="karanlik"] .siparis-karti.gecikme-uyari { background: rgba(243,156,18,.12); }
 .siparis-karti.gecikme-kritik {
-  border-left-color: #e74c3c;
+  border-left-color: #e74c3c; background: #fdecea;
   animation: gecikme-yanip-son 1.2s ease-in-out infinite;
 }
+[data-tema="karanlik"] .siparis-karti.gecikme-kritik { background: rgba(231,76,60,.14); }
 @keyframes gecikme-yanip-son {
   0%, 100% { box-shadow: var(--golge); }
   50% { box-shadow: 0 4px 22px rgba(231,76,60,.55); }

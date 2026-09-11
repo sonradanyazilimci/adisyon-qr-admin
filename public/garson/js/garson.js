@@ -115,6 +115,7 @@ async function baslat() {
 
   document.getElementById("masa-kapat-buton").addEventListener("click", () => {
     seciliMasa = null;
+    document.getElementById("siparis-alani").className = "siparis-alani";
     document.getElementById("siparis-alani").hidden = true;
     document.getElementById("sepet-bar").hidden = true;
     document.getElementById("mevcut-siparisler").innerHTML = "";
@@ -167,6 +168,7 @@ function masaSec(masaId) {
   if (!seciliMasa) return;
   sepet = sepetOku();
   document.getElementById("secili-masa-baslik").textContent = seciliMasa.ad;
+  document.getElementById("siparis-alani").className = `siparis-alani durum-${seciliMasa.durum || "bos"}`;
   document.getElementById("siparis-alani").hidden = false;
   renderMasalar();
   renderMevcutSiparisler();

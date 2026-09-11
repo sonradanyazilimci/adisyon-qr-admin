@@ -133,7 +133,11 @@ body.panel-suruklenirken { user-select: none; cursor: col-resize; }
 .masa-kart-adisyon:hover { box-shadow: 0 6px 18px rgba(15,23,42,.14); }
 .masa-kart-adisyon:active { transform: scale(0.96); }
 .masa-kart-adisyon.bos { border-top-color: #27ae60; }
-.masa-kart-adisyon.dolu { border-top-color: #e67e22; border-color: rgba(230,126,34,.45); }
+/* "Dolu" masalar en sık bakılan durum — sadece üst çizgiyle değil, hafif bir
+   turuncu taban tonuyla da işaretlenir; "boş" bilinçli olarak nötr bırakıldı
+   (dikkat gerektirmiyor, göz orada durmamalı). */
+.masa-kart-adisyon.dolu { border-top-color: #e67e22; border-color: rgba(230,126,34,.45); background: #fef6ee; }
+[data-tema="karanlik"] .masa-kart-adisyon.dolu { background: rgba(230,126,34,.14); }
 .masa-kart-adisyon.odeme_bekliyor { border-top-color: #c0392b; border-color: rgba(192,57,43,.5); background: #fdecea; }
 [data-tema="karanlik"] .masa-kart-adisyon.odeme_bekliyor { background: rgba(192,57,43,.2); }
 .masa-kart-adisyon.secili { outline: 3px solid var(--renk-ana); outline-offset: 1px; }
@@ -184,7 +188,15 @@ body.panel-suruklenirken { user-select: none; cursor: col-resize; }
 .detay-panel {
   flex: 0 0 var(--detay-genislik, 440px); min-width: 320px; max-width: 720px;
   background: var(--renk-kart); border-radius: 14px; box-shadow: var(--golge); padding: 20px;
+  border-top: 4px solid transparent; transition: background-color .15s ease, border-top-color .15s ease;
 }
+/* Seçili masanın durumu, panelin tamamına da (masa kartındaki gibi) hafif bir
+   taban tonu + üst şerit olarak yansır — "hangi masadayım" tek bakışta belli
+   olsun, sağ panel düz beyaz kalmasın. */
+.detay-panel.durum-dolu { border-top-color: #e67e22; background: #fef6ee; }
+[data-tema="karanlik"] .detay-panel.durum-dolu { background: rgba(230,126,34,.10); }
+.detay-panel.durum-odeme_bekliyor { border-top-color: #c0392b; background: #fdecea; }
+[data-tema="karanlik"] .detay-panel.durum-odeme_bekliyor { background: rgba(192,57,43,.13); }
 .detay-panel h2 { margin: 0; }
 .detay-panel-baslik { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .masa-eylem-satir { display: flex; gap: 6px; flex-wrap: wrap; }
