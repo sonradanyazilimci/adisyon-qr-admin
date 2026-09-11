@@ -35,6 +35,33 @@
 /* .panel-kart / .panel-kart-grid → public/shared/common.css'e taşındı
    (adisyon ekranı da ön muhasebe özet kartlarında aynı sınıfları kullanıyor). */
 
+/* Panel (Genel Bakış) — ikon + trend rozeti ile zenginleştirilmiş KPI kartları.
+   .panel-kart temel görünümü common.css'te; burada sadece admin paneline özel
+   ikon/trend eklerini stilliyoruz, adisyon'daki sade özet kartlarını etkilemez. */
+.panel-kart .ikon { font-size: 19px; line-height: 1; margin-bottom: 6px; opacity: .9; }
+.panel-kart .trend { display: block; font-size: 11.5px; font-weight: 800; margin-top: 5px; font-variant-numeric: tabular-nums; }
+.panel-kart .trend.up { color: var(--renk-yesil); }
+.panel-kart .trend.down { color: var(--renk-kirmizi); }
+.panel-kart .trend.flat { color: var(--renk-yazi-soluk); font-weight: 600; }
+.panel-kart-kritik { border: 1.5px solid var(--renk-kirmizi); }
+.panel-kart-kritik .deger { color: var(--renk-kirmizi); }
+
+.panel-ikili-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+@media (max-width: 800px) { .panel-ikili-grid { grid-template-columns: 1fr; } }
+
+/* Son 7 gün ciro — dikey mini bar grafiği (backend gerekmez, mevcut
+   siparisler önbelleğinden client tarafında günlere gruplanır). */
+.hafta-grafik { display: flex; align-items: flex-end; gap: 8px; height: 130px; padding-top: 18px; }
+.hafta-cubuk-dis { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; height: 100%; }
+.hafta-cubuk {
+  width: 100%; max-width: 32px; min-height: 3px; border-radius: 5px 5px 2px 2px;
+  background: var(--renk-ikincil-bg);
+  box-shadow: inset 0 0 0 1px var(--renk-kenar);
+}
+.hafta-cubuk.bugun { background: linear-gradient(180deg, var(--renk-ana), var(--renk-ana-koyu)); box-shadow: none; }
+.hafta-deger { font-size: 10.5px; color: var(--renk-yazi-soluk); font-variant-numeric: tabular-nums; }
+.hafta-etiket { font-size: 11px; font-weight: 700; color: var(--renk-yazi-soluk); }
+
 .urun-liste-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
 .urun-karti { background: var(--renk-kart); border: 1px solid var(--renk-kart-kenar); border-radius: 12px; box-shadow: var(--golge); overflow: hidden; display: flex; flex-direction: column; }
 .urun-karti img { width: 100%; height: 120px; object-fit: cover; background: var(--renk-ikincil-bg); }
