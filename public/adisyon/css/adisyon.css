@@ -186,7 +186,7 @@ body.panel-suruklenirken { user-select: none; cursor: col-resize; }
 }
 
 .detay-panel {
-  flex: 0 0 var(--detay-genislik, 440px); min-width: 320px; max-width: 720px;
+  flex: 0 0 var(--detay-genislik, 480px); min-width: 340px; max-width: 760px;
   background: var(--renk-kart); border-radius: 14px; box-shadow: var(--golge); padding: 20px;
   border-top: 4px solid transparent; transition: background-color .15s ease, border-top-color .15s ease;
 }
@@ -375,3 +375,130 @@ body.panel-suruklenirken { user-select: none; cursor: col-resize; }
 }
 .kilit-personel-cip:active { transform: scale(0.97); border-color: var(--renk-ana); }
 .kilit-secili-ad { font-size: 17px; font-weight: 800; margin-bottom: 4px; }
+
+/* ═══════════════════════ Dokunmatik kasa terminali ═══════════════════════
+   Adisyon ekranı kasada sürekli açık duran dokunmatik bir ekranda kullanılır.
+   Bu blok, yukarıdaki (ve common.css'teki) ölçüleri parmakla rahat basılacak
+   boyutlara büyütür: dokunma hedefleri en az ~48px, yazılar uzaktan okunur.
+   Bu dosya yalnızca adisyon sayfasında yüklendiği için diğer ekranlar etkilenmez. */
+
+/* Çift dokunma yakınlaştırmasını ve 300ms gecikmeyi kapat; basılı tutunca
+   buton yazısı seçilmesin */
+button, .masa-kart-adisyon, .pos-urun-kart, .kategori-cip, .garson-atama-cip,
+.kilit-personel-cip, .hesap-bol-kisi-cip, .hesap-bol-urun-satir {
+  touch-action: manipulation; -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Genel butonlar ve form alanları */
+button { min-height: 48px; padding: 12px 18px; font-size: 15px; border-radius: 10px; }
+.btn-kucuk { min-height: 44px; padding: 10px 14px; font-size: 14px; border-radius: 9px; }
+input, select, textarea { font-size: 16px; padding: 12px 14px; min-height: 48px; border-radius: 10px; }
+label { font-size: 14px; }
+.tema-degistir-buton { width: 48px; height: 48px; min-height: 48px; font-size: 20px; }
+.modal-kapat { min-height: 48px; min-width: 48px; font-size: 28px; top: 6px; right: 8px; }
+.modal-kutu { padding: 26px; }
+
+/* Ana sekmeler */
+.adisyon-sekme-buton { padding: 14px 26px; font-size: 16px; min-height: 54px; }
+
+/* Masalar */
+.masalar-panel h2 { font-size: 18px; }
+.masalar-panel-baslik { margin-bottom: 14px; }
+.masalar-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+.masa-kart-adisyon {
+  min-height: 132px; padding: 16px 10px 14px; gap: 4px; border-radius: 16px;
+  border-top-width: 6px;
+}
+.masa-kart-adisyon .masa-ad { font-size: 24px; }
+.masa-kart-adisyon .durum { font-size: 12px; padding: 3px 10px; margin-top: 6px; }
+.masa-kart-adisyon .tutar { font-size: 18px; margin-top: 4px; }
+.sorumlu-etiket { font-size: 12px; margin-top: 4px; }
+.masa-cagri-rozet { font-size: 12.5px; padding: 3px 8px; }
+.masa-kart-adisyon.cagirdi::after { font-size: 24px; top: -10px; right: -8px; }
+.masa-kart-adisyon.yeni-siparis::before { font-size: 22px; top: -10px; left: -8px; }
+.masa-kart-adisyon.secili { outline-width: 4px; outline-offset: 2px; }
+
+/* Plan görünümü */
+.masa-plan-sahne { min-height: 460px; }
+.masa-plan-sahne .masa-kart-adisyon { width: 124px; min-height: 88px; padding: 10px 6px; }
+.masa-plan-sahne .masa-kart-adisyon .masa-ad { font-size: 19px; }
+.masa-plan-konumsuz .masa-kart-adisyon { width: 160px; }
+
+/* Garson atama / eylem modu */
+.garson-atama-aciklama { font-size: 14px; }
+.garson-atama-cip { padding: 14px 22px; font-size: 15px; min-height: 52px; display: flex; align-items: center; }
+.eylem-modu-banner { padding: 14px 18px; font-size: 16px; }
+
+/* Sürüklenebilir ayırıcı — parmakla tutulabilecek genişlik */
+.panel-ayirici { flex-basis: 32px; }
+.panel-ayirici-tutamac { width: 12px; height: 72px; border-radius: 8px; }
+
+/* Detay paneli */
+.detay-panel { padding: 22px; }
+.detay-panel h2 { font-size: 22px; }
+.masa-eylem-satir { gap: 8px; }
+.siparis-blok { padding: 14px; border-radius: 12px; }
+.siparis-blok-ust { font-size: 13.5px; }
+.siparis-kalem { font-size: 16px; padding: 6px 0; }
+.siparis-kalem .not { font-size: 13px; }
+.siparis-durum-select { max-width: 200px; font-size: 14px; padding: 8px 10px; min-height: 44px; }
+.siparis-eylem-satir { gap: 8px; }
+.siparis-eylem-satir button { min-width: 110px; }
+.toplam-satir { font-size: 24px; padding: 16px 0; }
+.detay-eylemler { gap: 10px; }
+#hesap-kapat-buton { min-height: 60px; font-size: 18px; font-weight: 800; }
+
+/* Ödeme */
+.odeme-satirlari-baslik { font-size: 15px; }
+.odeme-satiri { gap: 8px; margin-bottom: 8px; }
+.odeme-satiri .odeme-satiri-sil { width: 48px; padding: 0; font-size: 18px; }
+.odeme-tahsil-tik { width: 48px; height: 48px; font-size: 22px; border-radius: 10px; }
+.odeme-kalan-satir { font-size: 15px; padding: 6px 0; }
+.odeme-tahsil-ipucu { font-size: 13px; }
+.hizli-odeme-etiket { font-size: 14px; }
+.hizli-odeme-buton { min-height: 56px; font-size: 16px; border-radius: 10px; }
+.para-ustu-kutu label { font-size: 14px; }
+.para-ustu-sonuc { font-size: 15px; }
+.para-ustu-sonuc b { font-size: 22px; }
+
+/* Hesap bölme */
+.hesap-bol-kisi-adet button { flex-basis: 60px; font-size: 26px; }
+.hesap-bol-kisi-adet input { font-size: 22px; }
+.hesap-bol-kisi-cip { padding: 12px 18px; font-size: 15px; }
+.hesap-bol-kisi-ekle { padding: 12px 18px; font-size: 15px; }
+.hesap-bol-urun-satir { padding: 14px 16px; font-size: 15px; min-height: 52px; }
+.hesap-bol-urun-etiket { font-size: 13px; }
+
+/* Menü / ürün ekleme */
+.kategori-seritler { gap: 10px; }
+.kategori-cip { padding: 13px 20px; font-size: 13.5px; min-height: 48px; }
+.kategori-cip.alt-kategori-cip { padding: 11px 17px; font-size: 12.5px; min-height: 44px; }
+.pos-urun-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.pos-urun-kart {
+  min-height: 96px; padding: 16px 12px 12px; border-radius: 12px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.pos-urun-kart .ad { font-size: 15px; margin-bottom: 6px; }
+.pos-urun-kart .fiyat { font-size: 15px; }
+.pos-tukendi-etiket { font-size: 12px; }
+.pos-not-buton { width: 36px; height: 36px; min-height: 36px; font-size: 15px; top: 4px; right: 4px; }
+
+/* Listeler (puantaj, kasa hareketleri) */
+.liste-satir .ana-bilgi strong { font-size: 16px; }
+.liste-satir .ana-bilgi span, .puantaj-durum { font-size: 14px; }
+.tam-genislik-panel h2 { font-size: 18px; }
+.gs-satir { font-size: 15.5px; padding: 8px 0; }
+.gs-satir.gs-vurgu { font-size: 17px; }
+
+/* Kilit ekranı */
+.kilit-kutu { max-width: 560px; }
+.kilit-kutu h2 { font-size: 22px; }
+.kilit-personel-liste { gap: 14px; }
+.kilit-personel-cip { padding: 22px 28px; font-size: 18px; min-width: 140px; border-radius: 14px; }
+.kilit-secili-ad { font-size: 20px; }
+
+/* Dokunmatik ekranda :hover "yapışıp" kalmasın — gölge efekti sadece farede */
+@media (hover: none) {
+  .masa-kart-adisyon:hover { box-shadow: var(--golge); }
+}

@@ -88,3 +88,50 @@
 @media (max-width: 560px) {
   .mutfak-govde { padding: 14px; gap: 14px; }
 }
+
+/* ═══════════════════════ PC mutfak ekranı ═══════════════════════
+   Mutfak ekranı ocak başında bir PC monitöründe sürekli açık durur ve
+   1–2 metreden bakılarak okunur. Bu yüzden:
+   - Geniş ekranda üç sütun her zaman yan yana, ekranı tam doldurur;
+     sayfa değil, her sütun kendi içinde kayar (başlıklar hep görünür).
+   - Masa adı, adet ve ürün adları uzaktan okunacak kadar büyük.
+   - Eylem butonları ıslak/eldivenli elle de basılabilecek boyutta. */
+
+button { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+
+@media (min-width: 900px) {
+  #sayfa:not([hidden]) { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  .mutfak-govde {
+    flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px; padding: 16px; align-items: stretch;
+  }
+  .mutfak-sutun {
+    min-width: 0; display: flex; flex-direction: column; min-height: 0; padding: 0;
+    overflow: hidden;
+  }
+  .mutfak-sutun h2 { margin: 0; padding: 14px 16px 12px; flex-shrink: 0; }
+  .siparis-kart-liste { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px 16px; }
+}
+
+/* Çok geniş ekranlarda (ör. 1920px+) sütun içinde kartlar ikişer yan yana */
+@media (min-width: 1700px) {
+  .siparis-kart-liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); align-content: start; }
+}
+
+.mutfak-sutun h2 { font-size: 17px; }
+.sayac { font-size: 16px; padding: 3px 12px; }
+
+.siparis-karti { padding: 16px; }
+.siparis-karti .masa-adi { font-size: 24px; padding: 8px 14px; }
+.siparis-karti .saat { font-size: 14px; }
+.siparis-karti .garson { font-size: 14px; }
+.siparis-karti .kalemler { gap: 8px; margin-bottom: 16px; }
+.siparis-karti .kalem { font-size: 19px; font-weight: 600; line-height: 1.3; }
+.siparis-karti .kalem .adet { font-size: 21px; min-width: 40px; }
+.siparis-karti .kalem .not { font-size: 15px; font-weight: 700; margin-top: 2px; }
+.sure-chip, .servis-bekleme-chip { font-size: 14px; padding: 4px 12px; }
+.siparis-karti-eylemler { gap: 10px; }
+.siparis-karti-eylemler button { min-height: 56px; font-size: 17px; font-weight: 800; border-radius: 10px; }
+.siparis-karti-eylemler .btn-ikincil { padding: 12px 16px; font-size: 15px; }
+.tema-degistir-buton { width: 44px; height: 44px; }
+.mod-eylemler .btn-kucuk { min-height: 44px; padding: 10px 16px; font-size: 14px; }

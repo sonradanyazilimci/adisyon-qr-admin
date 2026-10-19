@@ -118,3 +118,80 @@ body { background: var(--renk-arkaplan); padding-bottom: 90px; }
 .ukk-rozet {
   font-size: 10.5px; color: var(--renk-yazi-soluk); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+
+/* ═══════════════════════ Telefon için garson terminali ═══════════════════════
+   Garson ekranı telefondan, tek elle, ayakta kullanılır:
+   - Dokunma hedefleri en az 44px; çift dokunma yakınlaştırması kapalı.
+   - Form alanları 16px — iPhone'da tıklayınca sayfa yakınlaşmasın.
+   - Üst bar tek satır ve ince; ekranın çoğu masalara/ürünlere kalsın.
+   - Alttaki sepet çubuğu telefonun alt çizgi alanına girmesin. */
+
+button, .masa-kart-mini, .urun-kare-kart, .kategori-cip {
+  touch-action: manipulation; -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+button { min-height: 44px; }
+.btn-kucuk { min-height: 40px; padding: 8px 14px; font-size: 13.5px; }
+input, select, textarea { font-size: 16px; min-height: 44px; }
+input[type="checkbox"], input[type="radio"] { min-height: 0; }
+.arama-alani input { font-size: 16px; padding: 11px 16px; }
+.tema-degistir-buton { width: 42px; height: 42px; min-height: 42px; }
+.modal-kapat { min-width: 44px; min-height: 44px; font-size: 26px; top: 4px; right: 6px; }
+
+body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
+.sepet-bar { bottom: calc(12px + env(safe-area-inset-bottom)); min-height: 56px; font-size: 15px; }
+
+/* Masalar */
+.masa-secim-alani h2 { font-size: 16px; }
+.masalar-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+.masa-kart-mini {
+  min-height: 80px; padding: 12px 6px; font-size: 17px; border-radius: 14px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.masa-kart-mini:active { transform: scale(0.96); }
+.masa-kart-mini .durum { font-size: 11.5px; }
+.cagri-etiketi, .hazir-etiketi, .onay-etiketi { font-size: 11px; line-height: 1.25; }
+.masa-kart-mini.cagirdi::after, .masa-kart-mini.hesap-istendi::after,
+.masa-kart-mini.odeme-bildirildi::after { font-size: 20px; }
+
+/* Sipariş alanı — "Masa 5 / Masalara Dön" başlığı kaydırırken üstte sabit */
+.siparis-alani-baslik {
+  position: sticky; top: 66px; z-index: 40;
+  background: var(--renk-arkaplan); margin: 0 -18px 8px; padding: 10px 18px;
+  border-bottom: 1px solid var(--renk-kenar);
+}
+.siparis-alani.durum-dolu .siparis-alani-baslik { background: #fef6ee; }
+[data-tema="karanlik"] .siparis-alani.durum-dolu .siparis-alani-baslik { background: #2a1d12; }
+.siparis-alani.durum-odeme_bekliyor .siparis-alani-baslik { background: #fdecea; }
+[data-tema="karanlik"] .siparis-alani.durum-odeme_bekliyor .siparis-alani-baslik { background: #2a1615; }
+.siparis-alani-baslik h2 { font-size: 20px; }
+#masa-kapat-buton { min-height: 44px; font-size: 14px; }
+
+.mevcut-siparis-blok { padding: 12px 14px; }
+.mevcut-siparis-blok .ust { font-size: 13px; }
+.mevcut-siparis-blok .kalem { font-size: 15px; padding: 4px 0; }
+.mevcut-siparis-blok .kalem .not { font-size: 12.5px; }
+.siparis-eylem-satir { gap: 8px; }
+.menu-alt-baslik { font-size: 15px; }
+
+.kategori-cip { min-height: 40px; padding: 10px 16px; font-size: 12.5px; }
+.kategori-cip.alt-kategori-cip { min-height: 36px; font-size: 11.5px; }
+.ukk-govde h3 { font-size: 14.5px; }
+.ukk-govde .fiyat { font-size: 14.5px; }
+
+@media (max-width: 560px) {
+  /* Üst bar: kimlik solda, tema + çıkış sağda — tek satır */
+  .mod-header { flex-wrap: nowrap; padding: 8px 12px; }
+  .mod-eylemler { width: auto; flex-wrap: nowrap; flex-shrink: 0; }
+  .mod-eylemler button:not(.tema-degistir-buton) { flex: 0 0 auto; }
+  .mod-ikon { width: 36px; height: 36px; font-size: 18px; }
+  .mod-kimlik-ad strong { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+  .gorev-rozet { display: none; }
+
+  .masa-secim-alani { padding: 12px; }
+  .siparis-alani { padding: 0 12px 20px; }
+  .siparis-alani-baslik { margin: 0 -12px 8px; padding: 10px 12px; top: 58px; }
+  /* Telefonda ürünler 2 sütun, görsel biraz basık — tek ekrana daha çok ürün sığsın */
+  .urun-kare-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .urun-kare-kart img { aspect-ratio: 4 / 3; }
+}

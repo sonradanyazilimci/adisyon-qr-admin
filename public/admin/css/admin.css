@@ -200,3 +200,54 @@
   .sekme-eylemler { gap: 8px; }
   .urun-liste-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 }
+
+/* ═══════════════════════ PC + telefon ayarları ═══════════════════════
+   Admin paneli hem PC'den (fare) hem telefondan (parmak) kullanılır. */
+
+/* Dokunmatik cihazda: parmak boyutunda hedefler, 16px form alanları
+   (iPhone tıklayınca sayfayı yakınlaştırmasın) */
+@media (pointer: coarse) {
+  button, .nav-buton { touch-action: manipulation; }
+  button { min-height: 44px; }
+  .btn-kucuk { min-height: 40px; padding: 8px 14px; font-size: 13.5px; }
+  input, select, textarea { font-size: 16px; min-height: 44px; }
+  input[type="checkbox"], input[type="radio"] { min-height: 0; width: 20px; height: 20px; }
+  .tema-degistir-buton { width: 42px; height: 42px; min-height: 42px; }
+  .modal-kapat { min-width: 44px; min-height: 44px; font-size: 26px; top: 4px; right: 6px; }
+  .veri-tablo tbody tr:hover { background: none; }
+  .masa-plan-cip { padding: 12px 16px; font-size: 14px; }
+}
+
+@media (max-width: 900px) {
+  /* Üst menü daha az yer kaplasın: logo ve kullanıcı adı aynı satırda,
+     altında yatay kayan sekmeler */
+  .kenar-cubugu { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .logo-alan { padding: 10px 14px 8px; font-size: 17px; }
+  .kullanici-kimlik { padding: 10px 14px 8px; margin-left: auto; font-size: 10.5px; max-width: 55%; text-align: right; }
+  .kenar-cubugu nav { width: 100%; flex: 0 0 100%; }
+  .nav-buton { min-height: 42px; font-size: 14px; }
+
+  .ust-bar { margin-bottom: 14px; }
+  .sekme-eylemler > button { flex: 1 1 auto; }
+  .sekme-eylemler > input, .sekme-eylemler > select { max-width: none !important; flex: 1 1 160px; }
+
+  /* Özet kartları telefonda 2 sütun */
+  .panel-kart-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .panel-kart { padding: 14px; }
+  .panel-kart .deger { font-size: 20px; word-break: break-word; }
+  .panel-kart .etiket { font-size: 12px; }
+
+  .bar-satir .ad { width: 96px; }
+  .veri-tablo { font-size: 13.5px; }
+  .veri-tablo td { padding: 11px 10px; }
+
+  .masa-kart-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+
+  /* Modallar telefonda ekranı daha iyi kullansın */
+  .modal-katman { padding: 8px; }
+  .modal-kutu { padding: 18px 16px; max-height: 94vh; max-height: 94dvh; }
+}
+
+@media (max-width: 380px) {
+  .panel-kart-grid { grid-template-columns: 1fr; }
+}

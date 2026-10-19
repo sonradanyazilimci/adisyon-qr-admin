@@ -352,14 +352,14 @@ async function baslat() {
 // saklanır; pencere daralınca panellerden biri ezilmesin diye yeniden
 // sınırlanır. Mobilde (≤800px) paneller alt alta olduğu için ayraç gizli.
 const DETAY_GENISLIK_ANAHTARI = "adisyon_detay_genislik";
-const DETAY_GENISLIK_VARSAYILAN = 440;
+const DETAY_GENISLIK_VARSAYILAN = 480;
 
 function detayGenisligiUygula(px, kaydet) {
   const govde = document.querySelector(".adisyon-govde");
   if (!govde) return DETAY_GENISLIK_VARSAYILAN;
   const ic = govde.clientWidth - 44;            // yatay padding (22 + 22)
-  const enAz = 320;
-  const enCok = Math.max(enAz, Math.min(720, ic - 300 - 24)); // masalar ≥ 300, ayraç 24
+  const enAz = 340;
+  const enCok = Math.max(enAz, Math.min(760, ic - 300 - 32)); // masalar ≥ 300, ayraç 32
   const deger = Math.round(Math.max(enAz, Math.min(enCok, px)));
   govde.style.setProperty("--detay-genislik", deger + "px");
   if (kaydet) {
