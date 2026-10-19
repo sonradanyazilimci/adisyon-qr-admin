@@ -8,7 +8,7 @@
 // STATİK dosyaları (HTML/CSS/JS) ve Firebase SDK modüllerini önbelleğe alır;
 // Firestore/Auth ağ isteklerine (googleapis.com) hiç dokunmaz.
 // ─────────────────────────────────────────────────────────────────────────
-const SURUM = "v2";
+const SURUM = "v3";
 const KABUK = `kabuk-${SURUM}`;
 
 // İlk kurulumda önbelleğe alınacak kendi dosyalarımız (SW kapsamına GÖRELİ —
